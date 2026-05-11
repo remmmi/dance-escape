@@ -24,11 +24,12 @@ confettis. La vidéo est envoyée par email aux mariés.
 
 - **Node ≥ 18** (testé en 22).
 - `express` — serveur HTTP + statique
-- `multer` (v2) — uploads multipart (MP3, vidéos)
+- `multer` (v2) — uploads multipart (MP3, vidéos, **SFX**)
 - `nodemailer` — envoi email SMTP configuré par l'admin
 - Front : **vanilla JS / HTML / CSS** (zéro build, zéro framework). Web
-  Audio API pour buzzer & victoire, canvas pour confettis, YouTube
-  iframe API pour audio YouTube.
+  Audio API pour synth buzzer/victoire + **AudioBuffer cache** pour
+  MP3 préchargés et SFX custom, canvas pour confettis, YouTube iframe
+  API pour audio YouTube avec **pre-warming muted-autoplay**.
 
 Pas de bundler, pas de TypeScript, pas de tests. Pas de Docker
 (volontaire — trop lourd pour du one-shot).
@@ -69,17 +70,18 @@ data/
 uploads/
   mp3/                   # MP3 importés via /justmarried/mp3.html
   videos/                # enregistrements WebM/MP4
+  sfx/                   # buzzer.<ext> et victory.<ext> uploadés
 public/
-  index.html             # KIOSK
-  css/style.css          # thème principal
+  index.html             # KIOSK (SPA single-page : sections cachées)
+  css/style.css          # thème principal — palette sauge feutrée
   js/
-    kiosk.js             # machine d'états du parcours
+    kiosk.js             # machine d'états + préchargement + audio mix
     confetti.js          # confettis canvas (maison, ~100 lignes)
   justmarried/           # ADMIN (non protégé)
     index.html           # dashboard
-    mp3.html             # gestion MP3 + YouTube
+    mp3.html             # gestion MP3 + YouTube + timecode départ
     videos.html          # grille + lightbox
-    admin.html           # réglages (délais, SMTP, emails, code)
+    admin.html           # réglages (délais, SMTP, emails, code, SFX)
     css/admin.css        # thème admin
     js/admin-common.js   # helpers (toast, api, ms<->sec)
 ```
@@ -105,45 +107,104 @@ décimale)** côté admin via les helpers `msToSec` / `secToMs` /
   smtp:   { host, port, secure, user, pass, from },
   secretCode: "MARIES-2026",
   publicBaseUrl: "https://…",  // sert à construire les liens email
-  youtube: [{ videoId, title }]
+  youtube: [{ videoId, title, startSeconds }]
 }
 ```
+
+Les fichiers SFX (buzzer + victory) ne sont **pas** dans `config.json` —
+on regarde simplement la présence d'un fichier `buzzer.<ext>` /
+`victory.<ext>` dans `uploads/sfx/`. C'est la fonction `sfxUrl()` du
+serveur qui les expose dans `/api/session/config.sfx`.
 
 ### API
 
 Publique (depuis le kiosk) :
 
-- `GET  /api/session/config` → timings + playlist (MP3 + YouTube
-  fusionnés) + code
+- `GET  /api/session/config` → `{ timings, secretCode, playlist, sfx }`
+  où `playlist` est MP3 + YouTube fusionnés (chaque YouTube a son
+  `startSeconds`) et `sfx = { buzzerUrl, victoryUrl }` (chacun `null`
+  si pas de fichier custom).
 - `POST /api/session/upload` (multipart `video`, champs `music`,
-  `musicType`) → enregistre, indexe, déclenche l'email
+  `musicType`) → enregistre, indexe, déclenche l'email.
 
 Admin (sous `/api/admin/*`, non protégé) :
 
-- `GET  /config`  `POST /config` (whitelist d'update)
+- `GET  /config`  `POST /config` (whitelist d'update — inclut
+  `youtube[].startSeconds`)
 - `POST /smtp-test`
 - `GET  /mp3`  `POST /mp3` (multi-upload)  `DELETE /mp3/:name`
 - `GET  /videos`  `DELETE /videos/:id` (supprime aussi le fichier)
+- `GET  /sfx/:kind`  `POST /sfx/:kind` (single file)
+  `DELETE /sfx/:kind`  où `kind ∈ {buzzer, victory}`.
+
+### Pipeline de préchargement (kiosk.js — critique pour la latence)
+
+Goal : que le clic « Démarrer » → début effectif de la musique +
+enregistrement soit < 200 ms. Atteint par trois mécanismes lancés au
+**boot** de la page (pas au clic) :
+
+1. **MP3 → `AudioBuffer` cache** : `preloadFromConfig(cfg)` fait
+   `fetch + decodeAudioData` pour chaque MP3 + SFX custom au boot.
+   `startMusic` joue alors un `AudioBufferSourceNode` (sample-accurate,
+   ~0 ms d'attaque). Fallback `<audio>` si le buffer n'est pas prêt.
+   Re-fetch toutes les 60 s (sans recréer le YT player) pour suivre les
+   changements admin.
+2. **YouTube → pre-warmed `YT.Player` muté** : `prepareNextTrack(cfg)`
+   tire un track au sort, crée un `YT.Player` invisible avec
+   `autoplay=1, mute=1` (autoplay muet est autorisé sans gesture). Le
+   player bufferise pendant l'idle. Au clic Start, code chaud :
+   `unMute() + seekTo(startSeconds) + playVideo()`. Re-préparé à la fin
+   de chaque session.
+3. **Caméra/micro warm-up** : `warmupCamera()` n'ouvre `getUserMedia`
+   que si `Permissions API` confirme `camera+microphone = granted` (pour
+   ne pas allumer la LED sans raison à la 1re visite). Le `MediaStream`
+   est gardé entre sessions ; `MediaRecorder` est créé/détruit à chaque
+   session, le stream non. Seul `Shift+Échap` détruit le stream.
+
+Contraintes audio importantes (`CAM_CONSTRAINTS`) :
+`echoCancellation: false, noiseSuppression: false, autoGainControl: false`
+— sinon WebRTC filtre la musique des enceintes (traitée comme « écho »)
+et l'enregistrement n'a plus de son ambiant.
+
+Instrumentation `console.time` à laisser : `[warmup camera]`,
+`[prep youtube]`, `[click→getUserMedia]`, `[startMusic]`. Ouvrir la
+console DevTools pour mesurer les vrais temps en prod.
 
 ### Machine d'états du kiosk (`public/js/kiosk.js`)
 
-Quand le bouton est cliqué :
+**Au boot de la page** : `bootstrap()` → fetch config, `preloadFromConfig`
+(MP3 + SFX en AudioBuffer), `prepareNextTrack` (track tiré au sort +
+`YT.Player` pre-warmed muté si YouTube), `warmupCamera` (stream ouvert
+si permissions déjà accordées).
 
-1. Demande caméra/micro (`getUserMedia`), démarre `MediaRecorder`.
-2. Charge config + playlist, tire un titre au sort
-   (`pickTrack` — MP3 audio element OU `YT.Player` masqué).
-3. Affiche l'écran « Dansez ! » (anneaux pulsés + danseuse animée).
-4. À `phase1DurationMs` : `fadeMusic(0.15)` + `playBuzzer()`
-   (oscillateurs Web Audio).
+**Au clic « Démarrer »** :
+
+1. `startRecording` — réutilise le `mediaStream` warm si dispo, sinon
+   `getUserMedia`. Crée un nouveau `MediaRecorder`.
+2. Switch sur l'écran « Dansez ! ». `startDebugChrono()` lance le chrono
+   visible bas-droite (0.1 s).
+3. `startMusic(preparedTrack)` — réutilise le YT.Player pre-warmed
+   (`unMute + seekTo + playVideo`) ou crée un `AudioBufferSourceNode`
+   depuis le cache. Cold path si rien n'est prêt.
+4. À `phase1DurationMs` : `fadeMusic(0.15)` (Web Audio ramp natif sur
+   le `GainNode` pour le path BufferSource, rAF sinon) + `playBuzzer`.
+   Le buzzer joue le SFX custom si présent ; sinon synth "WRONG-WRONG"
+   (2 hits secs game-show, pas un sweep "wawwwh").
 5. Pendant `warningModalMs` : modal `.warn` avec countdown.
 6. Continue la danse jusqu'à `victoryStartMs`.
-7. `playVictory()` (arpège C-E-G-C + sparkle) + `DanceConfetti.launch()`
-   + modal `.victory` avec `secretCode`.
-8. À `totalDurationMs` : `stopRecording()` → upload async.
-9. Modal reste affiché jusqu'à `victoryModalMs` écoulées depuis le
-   début de la victoire, puis retour à l'écran d'accueil.
+7. `fadeMusic(0.1, 250)` puis `playVictory()` (SFX custom OU arpège
+   long 2 octaves + accord tenu + sparkles), puis **`fadeMusic(1.0)`
+   1.3 s plus tard** pour que la musique reprenne sous le modal.
+   `DanceConfetti.launch()` + modal `.victory` avec `secretCode`.
+8. À `totalDurationMs` : `stopRecording()` → upload async. **La musique
+   continue à jouer** sous le modal.
+9. Au bout de `victoryModalMs` (depuis le début de la victoire) :
+   `stopMusic()`, hide modal, retour idle, `resetDebugChrono()`. Puis
+   `prepareNextTrack` pour la session suivante (yt-host libéré).
 
-**Sortie d'urgence** : `Shift+Échap` réinitialise tout.
+**Sortie d'urgence** : `Shift+Échap` arrête tout, détruit le stream
+caméra, réinitialise. Utile pour réautoriser les permissions ou
+recharger le code après un déploiement.
 
 ## 5. Direction artistique
 
@@ -230,17 +291,99 @@ mariage. Ne pas faire `npm audit fix --force`.
 
 ## 8. Déploiement VPS
 
-Voir `README.md`. En résumé :
+### Ce qui est dans git
+
+- Tout le code (`server.js`, `public/`, `package*.json`)
+- **La config admin** (`data/config.json`, `data/videos.json`) — donc
+  le clone reprend la playlist YouTube + délais + SMTP du dev box.
+- **Les sons custom** (`uploads/sfx/buzzer.wav`, `victory.wav`) — pour
+  démarrer le VPS avec les bons SFX sans avoir à les re-uploader.
+- **Les MP3** (`uploads/mp3/*.mp3`) versionnés s'il y en a — partie de
+  la playlist.
+
+### Ce qui n'est PAS dans git
+
+- `node_modules/` — recréé par `npm install`.
+- `.env`, `*.log`, `.DS_Store`.
+
+Note RGPD : les vidéos invités (`uploads/videos/*`) **sont versionnées
+pour l'instant** (volonté du dev box pour clone-and-go). Si ça devient
+un souci de poids ou de privacy, sortir l'historique avec
+`git-filter-repo` / Git LFS — un simple `.gitignore` ne purgerait pas
+ce qui est déjà commit.
+
+### Méthode recommandée : `git clone` direct sur le VPS
 
 ```bash
-rsync -av --exclude node_modules ./ user@vps:/srv/dance-escape/
-ssh user@vps "cd /srv/dance-escape && npm install --omit=dev \
-  && pm2 start server.js --name dance-escape"
+# Sur le VPS :
+git clone https://github.com/remmmi/dance-escape.git /srv/dance-escape
+cd /srv/dance-escape
+npm install --omit=dev
+pm2 start server.js --name dance-escape   # ou systemd, voir ci-dessous
+pm2 save && pm2 startup                    # persistance après reboot
 ```
 
-Puis reverse-proxy HTTPS (Caddy une ligne, ou nginx + certbot).
-Renseigner `publicBaseUrl` dans l'admin pour que les liens email
-pointent vers la bonne URL.
+Mises à jour ensuite : `cd /srv/dance-escape && git pull && pm2 restart dance-escape`.
+
+### Reverse-proxy HTTPS (obligatoire pour la webcam hors localhost)
+
+Caddyfile une ligne :
+
+```
+dance.notre-mariage.fr {
+  reverse_proxy localhost:3000
+}
+```
+
+Caddy gère le cert Let's Encrypt automatiquement. Alternative : nginx +
+certbot.
+
+### Après le déploiement, à faire dans l'admin
+
+1. `publicBaseUrl` → l'URL HTTPS publique du VPS (pour les liens
+   email).
+2. Configurer le SMTP (host, user, pass) + tester avec « Envoyer un
+   email de test ».
+3. Ajouter / ajuster les destinataires email.
+4. Vérifier les délais (par défaut 10 / 2.5 / 8 / 30 / 40 / 30 s).
+5. Tester un parcours complet et regarder la console DevTools (F12)
+   pour les timings `[warmup camera]`, `[prep youtube]`,
+   `[click→getUserMedia]`, `[startMusic]`. Si `[startMusic]` est
+   supérieur à 200 ms après le 1er clic, vérifier que la playlist
+   contient bien des tracks pré-buffer-isables (les YT sont préparés
+   au boot et après chaque session).
+
+### Vérifications côté Claude sur le VPS
+
+Si tu es Claude Code et qu'on te demande de redémarrer / vérifier :
+
+```bash
+# Process up
+pm2 status dance-escape
+# Logs
+pm2 logs dance-escape --lines 50
+# Health
+curl -s http://localhost:3000/api/session/config | jq .
+# Reverse-proxy
+curl -sI https://dance.notre-mariage.fr/
+```
+
+Le SFX peut être uploadé/remplacé sans redémarrer (le serveur lit le
+dossier `uploads/sfx/` à chaque requête `/api/session/config`). La
+config (timings, code, SMTP, YouTube) est modifiable à chaud via
+l'admin — pas besoin de toucher `data/config.json` à la main.
+
+### Sortie kiosk (sur l'écran d'expo)
+
+```bash
+chromium --kiosk --noerrdialogs --disable-infobars \
+  --autoplay-policy=no-user-gesture-required \
+  https://dance.notre-mariage.fr/
+```
+
+À la 1re ouverture, autoriser caméra + micro dans l'invite Chrome.
+Les sessions suivantes auront tout le pipeline de pre-warming actif
+(LED caméra allumée pendant l'idle = c'est volontaire).
 
 ## 9. Modifications fréquentes (ce qu'on te demandera sans doute)
 
