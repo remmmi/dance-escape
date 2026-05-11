@@ -30,5 +30,17 @@ window.Admin = (() => {
     return r.json();
   }
   function confirmDelete(msg = 'Confirmer la suppression ?') { return window.confirm(msg); }
-  return { toast, fmtDate, fmtSize, api, confirmDelete };
+  // Durations: stored in ms, displayed in seconds with 1 decimal
+  function msToSec(ms) {
+    const n = Number(ms) || 0;
+    return Math.round(n / 100) / 10;
+  }
+  function secToMs(sec) {
+    const n = Number(sec) || 0;
+    return Math.round(n * 1000);
+  }
+  function fmtSec(ms) {
+    return msToSec(ms).toFixed(1) + ' s';
+  }
+  return { toast, fmtDate, fmtSize, api, confirmDelete, msToSec, secToMs, fmtSec };
 })();
