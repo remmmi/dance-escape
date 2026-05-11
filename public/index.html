@@ -6,7 +6,7 @@
   <title>Dance Escape</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@400;600;700&family=Italianno&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,500;0,600;0,700;1,500;1,600&family=Italianno&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="/css/style.css">
 </head>
 <body class="kiosk">
@@ -21,7 +21,7 @@
       <button id="btn-start" class="start-btn" type="button">
         <span class="start-btn-inner">Démarrer la danse</span>
       </button>
-      <p class="hint">Activez votre micro et votre caméra à la demande du navigateur.</p>
+      <p class="hint" id="perm-hint">Activez votre micro et votre caméra à la demande du navigateur.</p>
     </div>
   </main>
 
@@ -55,11 +55,14 @@
       <p class="overline">Bravo&nbsp;!</p>
       <h2>Code secret</h2>
       <div class="secret-code" id="secret-code">—</div>
-      <p class="sub">Notez-le bien et passez à l'épreuve suivante&nbsp;✨</p>
+      <p class="sub">Notez-le bien et passez à l'épreuve suivante.</p>
     </div>
   </div>
 
   <canvas id="confetti" class="confetti" aria-hidden="true"></canvas>
+
+  <!-- Debug chrono : temps écoulé depuis le clic Démarrer, 1 décimale -->
+  <div id="debug-chrono" class="debug-chrono" aria-hidden="true">0.0&nbsp;s</div>
 
   <!-- Hidden YouTube iframe target -->
   <div id="yt-host" class="yt-host" aria-hidden="true"></div>
