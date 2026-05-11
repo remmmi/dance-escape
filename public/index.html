@@ -15,13 +15,13 @@
 
   <main id="screen-idle" class="screen visible">
     <div class="frame">
-      <p class="overline">Mariage · Just Married</p>
-      <h1 class="title-script">Dance&nbsp;Escape</h1>
-      <p class="subtitle">Saurez-vous danser jusqu'au code secret&nbsp;?</p>
+      <p class="overline" data-text="overline">Mariage · Just Married</p>
+      <h1 class="title-script" data-text="title">Dance&nbsp;Escape</h1>
+      <p class="subtitle" data-text="subtitle">Saurez-vous danser jusqu'au code secret&nbsp;?</p>
       <button id="btn-start" class="start-btn" type="button">
-        <span class="start-btn-inner">Démarrer la danse</span>
+        <span class="start-btn-inner" data-text="startButton">Démarrer la danse</span>
       </button>
-      <p class="hint" id="perm-hint">Activez votre micro et votre caméra à la demande du navigateur.</p>
+      <p class="hint" id="perm-hint" data-text="hint">Activez votre micro et votre caméra à la demande du navigateur.</p>
     </div>
   </main>
 
@@ -32,8 +32,8 @@
       <div class="dancer" aria-hidden="true">
         <span class="emoji">💃</span>
       </div>
-      <p class="dance-call">Dansez&nbsp;!</p>
-      <p class="dance-sub">Énergie, sourires, mouvements…</p>
+      <p class="dance-call" data-text="danceCall">Dansez&nbsp;!</p>
+      <p class="dance-sub" data-text="danceSub">Énergie, sourires, mouvements…</p>
       <div class="track-tag" id="track-tag"></div>
       <div class="timer-track" aria-hidden="true">
         <div class="timer-fill" id="timer-fill"></div>
@@ -43,19 +43,19 @@
 
   <div id="modal-warning" class="modal" aria-hidden="true">
     <div class="modal-card warn">
-      <h2>Pas encore&nbsp;ça&nbsp;!</h2>
-      <p>Il va falloir y mettre <em>plus d'énergie</em> et de chorégraphie…</p>
+      <h2 data-text="warningTitle">Pas encore&nbsp;ça&nbsp;!</h2>
+      <p data-text="warningBody" data-text-html>Il va falloir y mettre <em>plus d'énergie</em> et de chorégraphie…</p>
       <div class="countdown"><span id="warn-count">8</span></div>
-      <p class="sub">Reprenez de plus belle&nbsp;!</p>
+      <p class="sub" data-text="warningSub">Reprenez de plus belle&nbsp;!</p>
     </div>
   </div>
 
   <div id="modal-victory" class="modal" aria-hidden="true">
     <div class="modal-card victory">
-      <p class="overline">Bravo&nbsp;!</p>
-      <h2>Code secret</h2>
+      <p class="overline" data-text="victoryOverline">Bravo&nbsp;!</p>
+      <h2 data-text="victoryTitle">Code secret</h2>
       <div class="secret-code" id="secret-code">—</div>
-      <p class="sub">Notez-le bien et passez à l'épreuve suivante.</p>
+      <p class="sub" data-text="victorySub">Notez-le bien et passez à l'épreuve suivante.</p>
     </div>
   </div>
 

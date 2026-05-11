@@ -58,6 +58,12 @@
     </div>
 
     <div class="card">
+      <h2>Textes du front</h2>
+      <p class="help">Chaque ligne affichée sur le kiosk, modifiable à la volée. Les changements sont appliqués au prochain chargement de la page kiosk (max 60 s, ou Shift+Échap puis F5 pour recharger immédiatement).</p>
+      <div id="texts-grid" class="row"></div>
+    </div>
+
+    <div class="card">
       <h2>Sons personnalisés</h2>
       <p class="help">Remplacez les sons synthétiques par vos propres fichiers. <strong>WAV mono 16-bit 44.1 kHz</strong> recommandé pour latence quasi-nulle (OGG Opus marche aussi). <strong>Évitez MP3/AAC</strong> (silence en début de fichier). Durée 0.5-2 s, peak vers -3 dBFS, trim agressif au début.</p>
       <div id="sfx-buzzer" class="sfx-row"></div>
@@ -139,6 +145,45 @@
       return String(s).replace(/[&<>"']/g, c => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[c]));
     }
 
+    // Textes éditables côté front. Ordre = ordre d'affichage dans
+    // l'admin. `multiline: true` => textarea, sinon input. La clé doit
+    // matcher celle dans DEFAULT_CONFIG.texts côté serveur.
+    const TEXT_FIELDS = [
+      { key: 'overline',        label: "Étiquette d'accueil" },
+      { key: 'title',           label: "Titre principal" },
+      { key: 'subtitle',        label: "Sous-titre d'accueil" },
+      { key: 'startButton',     label: "Texte du bouton démarrer" },
+      { key: 'hint',            label: "Indication micro/caméra",        multiline: true },
+      { key: 'danceCall',       label: "Appel à danser" },
+      { key: 'danceSub',        label: "Sous-texte de danse" },
+      { key: 'warningTitle',    label: "Titre échec" },
+      { key: 'warningBody',     label: "Texte échec (HTML : <em> autorisé)", multiline: true },
+      { key: 'warningSub',      label: "Sous-texte échec" },
+      { key: 'victoryOverline', label: "Étiquette victoire" },
+      { key: 'victoryTitle',    label: "Titre victoire" },
+      { key: 'victorySub',      label: "Sous-texte victoire" }
+    ];
+
+    function renderTextsGrid(texts) {
+      const root = document.getElementById('texts-grid');
+      root.innerHTML = TEXT_FIELDS.map(f => {
+        const val = (texts && texts[f.key] != null) ? texts[f.key] : '';
+        const input = f.multiline
+          ? `<textarea id="text-${f.key}" rows="2">${escapeHtml(val)}</textarea>`
+          : `<input type="text" id="text-${f.key}" value="${escapeHtml(val)}">`;
+        return `<div><label>${escapeHtml(f.label)}</label>${input}</div>`;
+      }).join('');
+    }
+
+    function collectTexts() {
+      const out = {};
+      for (const f of TEXT_FIELDS) {
+        const el = document.getElementById('text-' + f.key);
+        if (el) out[f.key] = el.value;
+      }
+      return out;
+    }
+
     function renderEmails() {
       const root = document.getElementById('emails-chips');
       if (!emails.length) {
@@ -169,6 +214,7 @@
       document.getElementById('smtp-from').value = c.smtp.from || '';
       emails = Array.isArray(c.emails) ? [...c.emails] : [];
       renderEmails();
+      renderTextsGrid(c.texts || {});
     }
 
     document.getElementById('email-add').addEventListener('click', () => {
@@ -201,7 +247,8 @@
           user: document.getElementById('smtp-user').value,
           pass: document.getElementById('smtp-pass').value,
           from: document.getElementById('smtp-from').value
-        }
+        },
+        texts: collectTexts()
       };
       try {
         const r = await api('/api/admin/config', { method: 'POST', body: JSON.stringify(payload) });

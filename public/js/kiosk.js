@@ -572,6 +572,20 @@
     return r.json();
   }
 
+  // Apply admin-editable strings to every [data-text] element. Elements
+  // marked with data-text-html (only warningBody by default) accept a
+  // limited subset of HTML — admin is trusted, no public input here.
+  function applyTexts(texts) {
+    if (!texts) return;
+    for (const el of document.querySelectorAll('[data-text]')) {
+      const key = el.dataset.text;
+      const val = texts[key];
+      if (typeof val !== 'string') continue;
+      if (el.hasAttribute('data-text-html')) el.innerHTML = val;
+      else el.textContent = val;
+    }
+  }
+
   // ---- main flow ----
   async function runSession() {
     if (busy) return;
@@ -580,6 +594,7 @@
       cfg = await fetchConfig();
       // Refresh SFX URLs (admin may have replaced them since boot) and
       // kick a fresh preload so any new track gets cached before pickTrack.
+      applyTexts(cfg.texts);
       preloadFromConfig(cfg);
     } catch (e) {
       showToast("Configuration introuvable");
@@ -732,6 +747,7 @@
     try {
       const initial = await fetchConfig();
       cfg = initial;
+      applyTexts(initial.texts);
       preloadFromConfig(initial);
       if (prepare) {
         prepareNextTrack(initial).catch(e => console.warn('[prepareNext]', e.message));

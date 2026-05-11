@@ -34,5 +34,20 @@
       "title": "Sex Machine",
       "startSeconds": 11
     }
-  ]
+  ],
+  "texts": {
+    "overline": "Mariage · Just Married",
+    "title": "Dance Escape",
+    "subtitle": "Saurez-vous danser jusqu'au code secret ?",
+    "startButton": "Démarrer la danse",
+    "hint": "Activez votre micro et votre caméra à la demande du navigateur.",
+    "danceCall": "Dansez !",
+    "danceSub": "Énergie, sourires, mouvements…",
+    "warningTitle": "Pas encore ça !",
+    "warningBody": "Il va falloir y mettre <em>plus d'énergie</em> et de chorégraphie…",
+    "warningSub": "Reprenez de plus belle !",
+    "victoryOverline": "Bravo !",
+    "victoryTitle": "Code secret",
+    "victorySub": "Notez-le bien et passez à l'épreuve suivante."
+  }
 }

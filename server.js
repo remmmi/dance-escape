@@ -72,7 +72,25 @@ const DEFAULT_CONFIG = {
     { videoId: 'K4Jkh5aAn-0', title: "au pays d'aragon..",                startSeconds: 0  },
     { videoId: 'yURRmWtbTbo', title: "MJ Don't Stop 'Til You Get Enough", startSeconds: 14 },
     { videoId: 'ZNaXb3uuekk', title: "Sex Machine",                       startSeconds: 11 }
-  ]
+  ],
+  // Toutes les lignes de texte affichées sur le kiosk, éditables via
+  // l'admin. Le DOM correspondant est repéré par data-text="<clé>".
+  // Seule `warningBody` est rendue en innerHTML (pour autoriser <em>).
+  texts: {
+    overline:        "Mariage · Just Married",
+    title:           "Dance Escape",
+    subtitle:        "Saurez-vous danser jusqu'au code secret ?",
+    startButton:     "Démarrer la danse",
+    hint:            "Activez votre micro et votre caméra à la demande du navigateur.",
+    danceCall:       "Dansez !",
+    danceSub:        "Énergie, sourires, mouvements…",
+    warningTitle:    "Pas encore ça !",
+    warningBody:     "Il va falloir y mettre <em>plus d'énergie</em> et de chorégraphie…",
+    warningSub:      "Reprenez de plus belle !",
+    victoryOverline: "Bravo !",
+    victoryTitle:    "Code secret",
+    victorySub:      "Notez-le bien et passez à l'épreuve suivante."
+  }
 };
 
 function readJson(p, fallback) {
@@ -157,7 +175,8 @@ app.get('/api/session/config', (_req, res) => {
     sfx: {
       buzzerUrl: sfxUrl('buzzer'),
       victoryUrl: sfxUrl('victory')
-    }
+    },
+    texts: cfg.texts || DEFAULT_CONFIG.texts
   });
 });
 
@@ -253,6 +272,15 @@ app.post('/api/admin/config', (req, res) => {
     if (typeof incoming.smtp.secure === 'boolean') cur.smtp.secure = incoming.smtp.secure;
   }
   if (typeof incoming.secretCode === 'string') cur.secretCode = incoming.secretCode;
+  if (incoming.texts && typeof incoming.texts === 'object') {
+    cur.texts = cur.texts || {};
+    // Only accept keys that exist in the default schema — prevents
+    // arbitrary key injection. Empty string is a valid value (admin
+    // may want to blank out a line).
+    for (const k of Object.keys(DEFAULT_CONFIG.texts)) {
+      if (typeof incoming.texts[k] === 'string') cur.texts[k] = incoming.texts[k];
+    }
+  }
   if (typeof incoming.publicBaseUrl === 'string') cur.publicBaseUrl = incoming.publicBaseUrl.replace(/\/+$/, '');
   if (Array.isArray(incoming.youtube)) {
     cur.youtube = incoming.youtube
