@@ -45,9 +45,14 @@
           <div class="help">Défaut 30000</div>
         </div>
         <div>
-          <label>Durée totale (depuis t=0)</label>
+          <label>Durée totale enregistrement (depuis t=0)</label>
           <input type="number" id="t-total" min="0" step="500">
           <div class="help">Défaut 40000</div>
+        </div>
+        <div>
+          <label>Affichage modal code (depuis victoire)</label>
+          <input type="number" id="t-victorymodal" min="0" step="500">
+          <div class="help">Défaut 30000 — puis retour à l'accueil</div>
         </div>
       </div>
     </div>
@@ -146,6 +151,7 @@
       document.getElementById('t-warn').value    = c.timings.warningModalMs;
       document.getElementById('t-victory').value = c.timings.victoryStartMs;
       document.getElementById('t-total').value   = c.timings.totalDurationMs;
+      document.getElementById('t-victorymodal').value = c.timings.victoryModalMs ?? 30000;
       document.getElementById('secret').value    = c.secretCode || '';
       document.getElementById('base-url').value  = c.publicBaseUrl || '';
       document.getElementById('smtp-host').value = c.smtp.host || '';
@@ -175,7 +181,8 @@
           buzzerDurationMs: +document.getElementById('t-buzz').value,
           warningModalMs:   +document.getElementById('t-warn').value,
           victoryStartMs:   +document.getElementById('t-victory').value,
-          totalDurationMs:  +document.getElementById('t-total').value
+          totalDurationMs:  +document.getElementById('t-total').value,
+          victoryModalMs:   +document.getElementById('t-victorymodal').value
         },
         secretCode: document.getElementById('secret').value,
         publicBaseUrl: document.getElementById('base-url').value,

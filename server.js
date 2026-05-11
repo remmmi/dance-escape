@@ -26,7 +26,8 @@ const DEFAULT_CONFIG = {
     buzzerDurationMs: 2500,
     warningModalMs: 8000,
     victoryStartMs: 30000,
-    totalDurationMs: 40000
+    totalDurationMs: 40000,
+    victoryModalMs: 30000
   },
   emails: [],
   smtp: {

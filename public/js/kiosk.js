@@ -285,7 +285,10 @@
       busy = false; return;
     }
 
-    const { phase1DurationMs, buzzerDurationMs, warningModalMs, victoryStartMs, totalDurationMs } = cfg.timings;
+    const {
+      phase1DurationMs, buzzerDurationMs, warningModalMs,
+      victoryStartMs, totalDurationMs, victoryModalMs = 30000
+    } = cfg.timings;
     secretCodeEl.textContent = cfg.secretCode || '—';
 
     // 1) Mic/Cam permission
@@ -337,6 +340,7 @@
     await sleep(waitToVictory);
 
     // Phase 5: victory
+    const victoryShownAt = performance.now();
     fadeMusic(0.1, 400);
     playVictory();
     if (window.DanceConfetti) DanceConfetti.launch({ duration: Math.min(8000, totalDurationMs - victoryStartMs + 2000) });
@@ -347,13 +351,14 @@
     await sleep(remainAfterVictory);
 
     stopBar();
-    // Stop recording + music
+    // Stop recording + music (modal stays visible)
     const blob = await stopRecording();
     stopMusic();
     if (blob) uploadVideo(blob).catch(() => {});
 
-    // Keep victory modal a few seconds, then return to idle
-    await sleep(4500);
+    // Keep victory modal up for the configured total duration
+    const modalElapsed = performance.now() - victoryShownAt;
+    await sleep(Math.max(0, victoryModalMs - modalElapsed));
     hideModal(modalVictory);
     timerFill.style.width = '0%';
     showScreen('idle');
