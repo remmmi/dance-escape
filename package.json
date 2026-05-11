@@ -1,0 +1,19 @@
+{
+  "name": "dance-escape",
+  "version": "1.0.0",
+  "private": true,
+  "description": "One-shot dance escape-room for a wedding",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node --watch server.js"
+  },
+  "dependencies": {
+    "express": "^4.19.2",
+    "multer": "^2.1.1",
+    "nodemailer": "^6.9.13"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}

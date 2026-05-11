@@ -1,0 +1,10 @@
+node_modules/
+uploads/mp3/*
+uploads/videos/*
+!uploads/mp3/.gitkeep
+!uploads/videos/.gitkeep
+data/config.json
+data/videos.json
+.DS_Store
+*.log
+.env

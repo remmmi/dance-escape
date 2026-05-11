@@ -1,0 +1,116 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Vidéos · Just Married</title>
+  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@400;600;700&family=Italianno&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/justmarried/css/admin.css">
+</head>
+<body>
+  <header class="nav">
+    <div class="nav-brand">Just Married <small>·</small></div>
+    <a href="/justmarried/index.html">Accueil</a>
+    <a href="/justmarried/mp3.html">Musiques</a>
+    <a href="/justmarried/videos.html" class="active">Vidéos</a>
+    <a href="/justmarried/admin.html">Réglages</a>
+    <a href="/" target="_blank" style="margin-left:auto;">↗ Kiosk</a>
+  </header>
+
+  <main>
+    <h1>Vidéos des danses</h1>
+    <p class="lead">Cliquez sur une miniature pour ouvrir en lightbox.</p>
+
+    <div class="card">
+      <div class="toolbar">
+        <button class="btn secondary" id="refresh">↻ Actualiser</button>
+        <span id="count" class="muted"></span>
+      </div>
+      <div id="grid" class="grid"></div>
+    </div>
+  </main>
+
+  <div id="lightbox" class="lightbox" role="dialog" aria-modal="true">
+    <div class="lightbox-card">
+      <button class="btn secondary lightbox-close" id="lb-close">Fermer ✕</button>
+      <video id="lb-video" controls autoplay playsinline></video>
+      <div id="lb-meta" class="muted" style="padding:0 .4rem;"></div>
+    </div>
+  </div>
+
+  <script src="/justmarried/js/admin-common.js"></script>
+  <script>
+    const { toast, fmtDate, fmtSize, api, confirmDelete } = window.Admin;
+
+    function escapeHtml(s) {
+      return String(s).replace(/[&<>"']/g, c => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[c]));
+    }
+
+    async function load() {
+      try {
+        const list = await api('/api/admin/videos');
+        document.getElementById('count').textContent = list.length + ' vidéo(s)';
+        const grid = document.getElementById('grid');
+        if (!list.length) {
+          grid.innerHTML = '<div class="empty">Aucune vidéo encore enregistrée.</div>';
+          return;
+        }
+        grid.innerHTML = list.map(v => {
+          const url = '/uploads/videos/' + encodeURIComponent(v.filename);
+          return `
+          <div class="video-card">
+            <div class="video-thumb" data-open="${escapeHtml(url)}" data-music="${escapeHtml(v.music || '')}" data-date="${escapeHtml(v.createdAt || '')}">
+              <video src="${url}#t=0.5" preload="metadata" muted></video>
+              <div class="play">▶</div>
+            </div>
+            <div class="video-meta">
+              <div class="date">${fmtDate(v.createdAt)}</div>
+              <div class="music">♪ ${escapeHtml(v.music || '—')}</div>
+              <div class="muted">${fmtSize(v.size)}</div>
+            </div>
+            <div class="video-actions">
+              <a class="btn secondary" href="${url}" target="_blank">Télécharger</a>
+              <button class="btn danger" data-del="${v.id}">Supprimer</button>
+            </div>
+          </div>`;
+        }).join('');
+        grid.querySelectorAll('[data-open]').forEach(el => {
+          el.addEventListener('click', () => openLightbox(el.getAttribute('data-open'), el.getAttribute('data-music'), el.getAttribute('data-date')));
+        });
+        grid.querySelectorAll('[data-del]').forEach(b => {
+          b.addEventListener('click', async () => {
+            if (!confirmDelete('Supprimer cette vidéo définitivement ?')) return;
+            try {
+              await api('/api/admin/videos/' + b.getAttribute('data-del'), { method: 'DELETE' });
+              toast('Supprimé');
+              load();
+            } catch (e) { toast(e.message, true); }
+          });
+        });
+      } catch (e) { toast(e.message, true); }
+    }
+
+    function openLightbox(url, music, date) {
+      const lb = document.getElementById('lightbox');
+      const v = document.getElementById('lb-video');
+      v.src = url;
+      document.getElementById('lb-meta').textContent = `${fmtDate(date)} · ♪ ${music || '—'}`;
+      lb.classList.add('visible');
+    }
+    function closeLightbox() {
+      const lb = document.getElementById('lightbox');
+      const v = document.getElementById('lb-video');
+      v.pause(); v.removeAttribute('src'); v.load();
+      lb.classList.remove('visible');
+    }
+    document.getElementById('lb-close').addEventListener('click', closeLightbox);
+    document.getElementById('lightbox').addEventListener('click', (e) => {
+      if (e.target.id === 'lightbox') closeLightbox();
+    });
+    document.addEventListener('keydown', (e) => { if (e.key === 'Escape') closeLightbox(); });
+
+    document.getElementById('refresh').addEventListener('click', load);
+    load();
+  </script>
+</body>
+</html>

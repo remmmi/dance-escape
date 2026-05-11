@@ -1,0 +1,169 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Musiques · Just Married</title>
+  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@400;600;700&family=Italianno&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/justmarried/css/admin.css">
+</head>
+<body>
+  <header class="nav">
+    <div class="nav-brand">Just Married <small>·</small></div>
+    <a href="/justmarried/index.html">Accueil</a>
+    <a href="/justmarried/mp3.html" class="active">Musiques</a>
+    <a href="/justmarried/videos.html">Vidéos</a>
+    <a href="/justmarried/admin.html">Réglages</a>
+    <a href="/" target="_blank" style="margin-left:auto;">↗ Kiosk</a>
+  </header>
+
+  <main>
+    <h1>Musiques</h1>
+    <p class="lead">La playlist est tirée au sort à chaque session (shuffle de MP3 + YouTube).</p>
+
+    <div class="card">
+      <h2>Fichiers MP3</h2>
+      <div class="toolbar">
+        <label class="btn" style="cursor:pointer;">
+          + Ajouter des MP3
+          <input id="mp3-input" type="file" accept=".mp3,audio/mpeg" multiple hidden>
+        </label>
+        <span id="mp3-status" class="muted"></span>
+      </div>
+      <div id="mp3-list"></div>
+    </div>
+
+    <div class="card">
+      <h2>Liens YouTube (audio uniquement)</h2>
+      <p class="help">Coller une URL YouTube ou juste l'ID. La vidéo est masquée — seul le son est joué.</p>
+      <div id="yt-list"></div>
+      <div class="youtube-row">
+        <input id="yt-url" type="url" placeholder="https://www.youtube.com/watch?v=... ou ID">
+        <input id="yt-title" type="text" placeholder="Titre (optionnel)">
+        <button class="btn" id="yt-add">+ Ajouter</button>
+      </div>
+      <button class="btn secondary" id="yt-save" style="margin-top:.6rem;">Enregistrer</button>
+    </div>
+  </main>
+
+  <script src="/justmarried/js/admin-common.js"></script>
+  <script>
+    const { toast, fmtSize, api, confirmDelete } = window.Admin;
+
+    // MP3
+    async function loadMp3() {
+      const list = await api('/api/admin/mp3');
+      const root = document.getElementById('mp3-list');
+      if (list.length === 0) {
+        root.innerHTML = '<div class="empty">Aucun MP3 — ajoutez-en pour démarrer.</div>';
+        return;
+      }
+      const rows = list.map(f => `
+        <tr>
+          <td>♪ ${escapeHtml(f.name)}</td>
+          <td class="muted">${fmtSize(f.size)}</td>
+          <td><audio controls preload="none" src="${f.url}" style="height:32px;"></audio></td>
+          <td style="text-align:right;">
+            <button class="btn danger" data-del="${encodeURIComponent(f.name)}">Supprimer</button>
+          </td>
+        </tr>`).join('');
+      root.innerHTML = `<table class="list"><thead><tr><th>Fichier</th><th>Taille</th><th>Écoute</th><th></th></tr></thead><tbody>${rows}</tbody></table>`;
+      root.querySelectorAll('[data-del]').forEach(b => {
+        b.addEventListener('click', async () => {
+          const name = decodeURIComponent(b.getAttribute('data-del'));
+          if (!confirmDelete(`Supprimer « ${name} » ?`)) return;
+          try {
+            await api('/api/admin/mp3/' + encodeURIComponent(name), { method: 'DELETE' });
+            toast('Supprimé');
+            loadMp3();
+          } catch (e) { toast(e.message, true); }
+        });
+      });
+    }
+
+    document.getElementById('mp3-input').addEventListener('change', async (ev) => {
+      const files = Array.from(ev.target.files || []);
+      if (!files.length) return;
+      const fd = new FormData();
+      for (const f of files) fd.append('files', f);
+      const st = document.getElementById('mp3-status');
+      st.textContent = 'Envoi…';
+      try {
+        const r = await fetch('/api/admin/mp3', { method: 'POST', body: fd });
+        if (!r.ok) throw new Error('HTTP ' + r.status);
+        st.textContent = '';
+        toast('Importé');
+        ev.target.value = '';
+        loadMp3();
+      } catch (e) {
+        st.textContent = '';
+        toast('Échec import: ' + e.message, true);
+      }
+    });
+
+    // YouTube
+    let ytItems = [];
+
+    function parseYouTube(input) {
+      const s = (input || '').trim();
+      if (!s) return null;
+      let m = s.match(/[?&]v=([A-Za-z0-9_-]{6,})/);
+      if (m) return m[1];
+      m = s.match(/youtu\.be\/([A-Za-z0-9_-]{6,})/);
+      if (m) return m[1];
+      m = s.match(/youtube\.com\/embed\/([A-Za-z0-9_-]{6,})/);
+      if (m) return m[1];
+      if (/^[A-Za-z0-9_-]{6,}$/.test(s)) return s;
+      return null;
+    }
+
+    function renderYt() {
+      const root = document.getElementById('yt-list');
+      if (!ytItems.length) {
+        root.innerHTML = '<div class="empty">Aucun lien YouTube.</div>';
+        return;
+      }
+      root.innerHTML = '<div class="chips">' + ytItems.map((y, i) =>
+        `<span class="chip">♪ ${escapeHtml(y.title || y.videoId)} <small style="opacity:.6;">(${escapeHtml(y.videoId)})</small> <button data-yt-del="${i}" title="Retirer">×</button></span>`
+      ).join('') + '</div>';
+      root.querySelectorAll('[data-yt-del]').forEach(b => {
+        b.addEventListener('click', () => {
+          ytItems.splice(parseInt(b.getAttribute('data-yt-del'), 10), 1);
+          renderYt();
+        });
+      });
+    }
+
+    document.getElementById('yt-add').addEventListener('click', () => {
+      const url = document.getElementById('yt-url').value;
+      const title = document.getElementById('yt-title').value.trim();
+      const id = parseYouTube(url);
+      if (!id) return toast("URL ou ID YouTube invalide", true);
+      ytItems.push({ videoId: id, title });
+      document.getElementById('yt-url').value = '';
+      document.getElementById('yt-title').value = '';
+      renderYt();
+    });
+
+    document.getElementById('yt-save').addEventListener('click', async () => {
+      try {
+        await api('/api/admin/config', { method: 'POST', body: JSON.stringify({ youtube: ytItems }) });
+        toast('YouTube enregistré');
+      } catch (e) { toast(e.message, true); }
+    });
+
+    function escapeHtml(s) {
+      return String(s).replace(/[&<>"']/g, c => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[c]));
+    }
+
+    (async () => {
+      try {
+        const cfg = await api('/api/admin/config');
+        ytItems = Array.isArray(cfg.youtube) ? cfg.youtube : [];
+        renderYt();
+      } catch (e) { toast(e.message, true); }
+      loadMp3();
+    })();
+  </script>
+</body>
+</html>

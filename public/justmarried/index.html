@@ -1,0 +1,45 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Just Married · Admin</title>
+  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@400;600;700&family=Italianno&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/justmarried/css/admin.css">
+</head>
+<body>
+  <header class="nav">
+    <div class="nav-brand">Just Married <small>·</small></div>
+    <a href="/justmarried/index.html" class="active">Accueil</a>
+    <a href="/justmarried/mp3.html">Musiques</a>
+    <a href="/justmarried/videos.html">Vidéos</a>
+    <a href="/justmarried/admin.html">Réglages</a>
+    <a href="/" target="_blank" style="margin-left:auto;">↗ Kiosk</a>
+  </header>
+  <main>
+    <h1>Bienvenue, les jeunes mariés !</h1>
+    <p class="lead">Tableau de bord de l'épreuve <em>Dance Escape</em>.</p>
+
+    <div class="row">
+      <a class="card" href="/justmarried/mp3.html" style="text-decoration:none;color:inherit;">
+        <h2>♪ Musiques</h2>
+        <p class="muted">Ajouter/supprimer les MP3 et liens YouTube de la playlist shuffle.</p>
+      </a>
+      <a class="card" href="/justmarried/videos.html" style="text-decoration:none;color:inherit;">
+        <h2>▶ Vidéos</h2>
+        <p class="muted">Visionner et supprimer les danses enregistrées.</p>
+      </a>
+      <a class="card" href="/justmarried/admin.html" style="text-decoration:none;color:inherit;">
+        <h2>⚙ Réglages</h2>
+        <p class="muted">Délais, code secret, emails, SMTP, URL publique.</p>
+      </a>
+    </div>
+
+    <div class="card">
+      <h2>Tester le kiosk</h2>
+      <p class="muted">Ouvrez <code>/</code> dans le navigateur en mode kiosk plein écran.</p>
+      <p class="help">Astuce : sur Chromium, lancez <code>chromium --kiosk http://localhost:3000/</code>.</p>
+    </div>
+  </main>
+</body>
+</html>

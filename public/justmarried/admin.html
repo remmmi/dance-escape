@@ -1,0 +1,217 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Réglages · Just Married</title>
+  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@400;600;700&family=Italianno&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/justmarried/css/admin.css">
+</head>
+<body>
+  <header class="nav">
+    <div class="nav-brand">Just Married <small>·</small></div>
+    <a href="/justmarried/index.html">Accueil</a>
+    <a href="/justmarried/mp3.html">Musiques</a>
+    <a href="/justmarried/videos.html">Vidéos</a>
+    <a href="/justmarried/admin.html" class="active">Réglages</a>
+    <a href="/" target="_blank" style="margin-left:auto;">↗ Kiosk</a>
+  </header>
+
+  <main>
+    <h1>Réglages</h1>
+    <p class="lead">Tous les paramètres de l'épreuve, modifiables à la volée.</p>
+
+    <div class="card">
+      <h2>Délais (millisecondes)</h2>
+      <div class="row">
+        <div>
+          <label>Phase 1 — danse initiale</label>
+          <input type="number" id="t-phase1" min="0" step="500">
+          <div class="help">Durée avant le buzzer (défaut 10000)</div>
+        </div>
+        <div>
+          <label>Buzzer (durée)</label>
+          <input type="number" id="t-buzz" min="500" step="100">
+          <div class="help">2000–3000 conseillé</div>
+        </div>
+        <div>
+          <label>Modal d'avertissement</label>
+          <input type="number" id="t-warn" min="0" step="500">
+          <div class="help">Compte à rebours (défaut 8000)</div>
+        </div>
+        <div>
+          <label>Début victoire (depuis t=0)</label>
+          <input type="number" id="t-victory" min="0" step="500">
+          <div class="help">Défaut 30000</div>
+        </div>
+        <div>
+          <label>Durée totale (depuis t=0)</label>
+          <input type="number" id="t-total" min="0" step="500">
+          <div class="help">Défaut 40000</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>Code secret</h2>
+      <label>Code affiché à la fin</label>
+      <input type="text" id="secret" placeholder="ex. MARIES-2026">
+    </div>
+
+    <div class="card">
+      <h2>URL publique</h2>
+      <label>Base de lien envoyée dans les emails</label>
+      <input type="url" id="base-url" placeholder="https://dance.notre-mariage.fr">
+      <div class="help">Laissez vide en local. Sans slash final.</div>
+    </div>
+
+    <div class="card">
+      <h2>Destinataires email</h2>
+      <div id="emails-chips" class="chips"></div>
+      <div class="youtube-row" style="margin-top:.6rem;">
+        <input type="email" id="email-input" placeholder="prenom@exemple.fr">
+        <input type="text" id="email-placeholder" style="visibility:hidden;">
+        <button class="btn" id="email-add">+ Ajouter</button>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>SMTP</h2>
+      <div class="row">
+        <div>
+          <label>Hôte</label>
+          <input type="text" id="smtp-host" placeholder="smtp.gmail.com">
+        </div>
+        <div>
+          <label>Port</label>
+          <input type="number" id="smtp-port" placeholder="587">
+        </div>
+        <div>
+          <label>Secure (TLS)</label>
+          <select id="smtp-secure">
+            <option value="false">Non (STARTTLS / 587)</option>
+            <option value="true">Oui (TLS / 465)</option>
+          </select>
+        </div>
+        <div>
+          <label>Utilisateur</label>
+          <input type="text" id="smtp-user" autocomplete="off">
+        </div>
+        <div>
+          <label>Mot de passe</label>
+          <input type="password" id="smtp-pass" autocomplete="new-password">
+        </div>
+        <div>
+          <label>Expéditeur (From)</label>
+          <input type="text" id="smtp-from" placeholder='"Les Mariés" <noreply@exemple.fr>'>
+        </div>
+      </div>
+      <div class="toolbar" style="margin-top: 1rem;">
+        <button class="btn secondary" id="smtp-test">Envoyer un email de test</button>
+      </div>
+    </div>
+
+    <div class="toolbar" style="position:sticky;bottom:0;background:rgba(251,248,241,.85);backdrop-filter:blur(6px);padding:1rem;border-radius:14px;box-shadow:var(--shadow);">
+      <button class="btn" id="save">💾 Enregistrer tout</button>
+      <button class="btn secondary" id="reload">Annuler / Recharger</button>
+    </div>
+  </main>
+
+  <script src="/justmarried/js/admin-common.js"></script>
+  <script>
+    const { toast, api } = window.Admin;
+    let cfg = null;
+    let emails = [];
+
+    function escapeHtml(s) {
+      return String(s).replace(/[&<>"']/g, c => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[c]));
+    }
+
+    function renderEmails() {
+      const root = document.getElementById('emails-chips');
+      if (!emails.length) {
+        root.innerHTML = '<span class="muted">Aucun destinataire. Les vidéos seront stockées mais non envoyées.</span>';
+        return;
+      }
+      root.innerHTML = emails.map((e, i) => `<span class="chip">✉ ${escapeHtml(e)} <button data-rm="${i}">×</button></span>`).join('');
+      root.querySelectorAll('[data-rm]').forEach(b => {
+        b.addEventListener('click', () => { emails.splice(+b.getAttribute('data-rm'), 1); renderEmails(); });
+      });
+    }
+
+    function load(c) {
+      cfg = c;
+      document.getElementById('t-phase1').value  = c.timings.phase1DurationMs;
+      document.getElementById('t-buzz').value    = c.timings.buzzerDurationMs;
+      document.getElementById('t-warn').value    = c.timings.warningModalMs;
+      document.getElementById('t-victory').value = c.timings.victoryStartMs;
+      document.getElementById('t-total').value   = c.timings.totalDurationMs;
+      document.getElementById('secret').value    = c.secretCode || '';
+      document.getElementById('base-url').value  = c.publicBaseUrl || '';
+      document.getElementById('smtp-host').value = c.smtp.host || '';
+      document.getElementById('smtp-port').value = c.smtp.port || 587;
+      document.getElementById('smtp-secure').value = String(!!c.smtp.secure);
+      document.getElementById('smtp-user').value = c.smtp.user || '';
+      document.getElementById('smtp-pass').value = c.smtp.pass || '';
+      document.getElementById('smtp-from').value = c.smtp.from || '';
+      emails = Array.isArray(c.emails) ? [...c.emails] : [];
+      renderEmails();
+    }
+
+    document.getElementById('email-add').addEventListener('click', () => {
+      const inp = document.getElementById('email-input');
+      const v = inp.value.trim();
+      if (!v || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v)) return toast('Email invalide', true);
+      emails.push(v); inp.value = ''; renderEmails();
+    });
+    document.getElementById('email-input').addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') { e.preventDefault(); document.getElementById('email-add').click(); }
+    });
+
+    document.getElementById('save').addEventListener('click', async () => {
+      const payload = {
+        timings: {
+          phase1DurationMs: +document.getElementById('t-phase1').value,
+          buzzerDurationMs: +document.getElementById('t-buzz').value,
+          warningModalMs:   +document.getElementById('t-warn').value,
+          victoryStartMs:   +document.getElementById('t-victory').value,
+          totalDurationMs:  +document.getElementById('t-total').value
+        },
+        secretCode: document.getElementById('secret').value,
+        publicBaseUrl: document.getElementById('base-url').value,
+        emails,
+        smtp: {
+          host: document.getElementById('smtp-host').value,
+          port: +document.getElementById('smtp-port').value,
+          secure: document.getElementById('smtp-secure').value === 'true',
+          user: document.getElementById('smtp-user').value,
+          pass: document.getElementById('smtp-pass').value,
+          from: document.getElementById('smtp-from').value
+        }
+      };
+      try {
+        const r = await api('/api/admin/config', { method: 'POST', body: JSON.stringify(payload) });
+        load(r.config);
+        toast('Enregistré');
+      } catch (e) { toast(e.message, true); }
+    });
+
+    document.getElementById('reload').addEventListener('click', async () => {
+      try { load(await api('/api/admin/config')); toast('Rechargé'); } catch (e) { toast(e.message, true); }
+    });
+
+    document.getElementById('smtp-test').addEventListener('click', async () => {
+      const to = prompt('Adresse de test :', emails[0] || '');
+      if (!to) return;
+      try {
+        await api('/api/admin/smtp-test', { method: 'POST', body: JSON.stringify({ to }) });
+        toast('Email envoyé');
+      } catch (e) { toast('Échec : ' + e.message, true); }
+    });
+
+    (async () => {
+      try { load(await api('/api/admin/config')); } catch (e) { toast(e.message, true); }
+    })();
+  </script>
+</body>
+</html>

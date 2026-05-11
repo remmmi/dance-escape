@@ -1,0 +1,71 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Dance Escape</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@400;600;700&family=Italianno&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/css/style.css">
+</head>
+<body class="kiosk">
+  <div class="leaves leaves-tl" aria-hidden="true"></div>
+  <div class="leaves leaves-br" aria-hidden="true"></div>
+
+  <main id="screen-idle" class="screen visible">
+    <div class="frame">
+      <p class="overline">Mariage · Just Married</p>
+      <h1 class="title-script">Dance&nbsp;Escape</h1>
+      <p class="subtitle">Saurez-vous danser jusqu'au code secret&nbsp;?</p>
+      <button id="btn-start" class="start-btn" type="button">
+        <span class="start-btn-inner">Démarrer la danse</span>
+      </button>
+      <p class="hint">Activez votre micro et votre caméra à la demande du navigateur.</p>
+    </div>
+  </main>
+
+  <section id="screen-dance" class="screen" aria-hidden="true">
+    <div class="dance-stage">
+      <div class="pulse-ring"></div>
+      <div class="pulse-ring delayed"></div>
+      <div class="dancer" aria-hidden="true">
+        <span class="emoji">💃</span>
+      </div>
+      <p class="dance-call">Dansez&nbsp;!</p>
+      <p class="dance-sub">Énergie, sourires, mouvements…</p>
+      <div class="track-tag" id="track-tag"></div>
+      <div class="timer-track" aria-hidden="true">
+        <div class="timer-fill" id="timer-fill"></div>
+      </div>
+    </div>
+  </section>
+
+  <div id="modal-warning" class="modal" aria-hidden="true">
+    <div class="modal-card warn">
+      <h2>Pas encore&nbsp;ça&nbsp;!</h2>
+      <p>Il va falloir y mettre <em>plus d'énergie</em> et de chorégraphie…</p>
+      <div class="countdown"><span id="warn-count">8</span></div>
+      <p class="sub">Reprenez de plus belle&nbsp;!</p>
+    </div>
+  </div>
+
+  <div id="modal-victory" class="modal" aria-hidden="true">
+    <div class="modal-card victory">
+      <p class="overline">Bravo&nbsp;!</p>
+      <h2>Code secret</h2>
+      <div class="secret-code" id="secret-code">—</div>
+      <p class="sub">Notez-le bien et passez à l'épreuve suivante&nbsp;✨</p>
+    </div>
+  </div>
+
+  <canvas id="confetti" class="confetti" aria-hidden="true"></canvas>
+
+  <!-- Hidden YouTube iframe target -->
+  <div id="yt-host" class="yt-host" aria-hidden="true"></div>
+  <video id="cam" class="cam-hidden" autoplay muted playsinline></video>
+
+  <script src="/js/confetti.js"></script>
+  <script src="/js/kiosk.js"></script>
+</body>
+</html>
