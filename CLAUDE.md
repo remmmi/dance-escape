@@ -1,8 +1,8 @@
 # CLAUDE.md — Dance Escape
 
-Guide pour Claude Code travaillant sur ce dépôt. Lis ce fichier d'abord :
-il décrit ce qu'est l'app, son architecture, sa direction artistique et
-comment la lancer.
+Ce fichier fournit des directives à Claude Code (claude.ai/code) lorsqu'il
+travaille dans ce dépôt. Lis-le d'abord : il décrit ce qu'est l'app, son
+architecture, sa direction artistique et comment la lancer.
 
 ## 1. Le projet
 
@@ -215,6 +215,19 @@ curl -s -X POST http://localhost:3033/api/admin/config \
 Pour tester la séquence sans attendre 40 s, baisse les délais dans
 `/justmarried/admin.html`.
 
+### Vulnérabilités npm
+
+`npm audit` remonte 1 vuln **high** sur `nodemailer` (4 CVE confondues :
+DoS `addressparser`, SMTP command injection via `envelope.size` / `name`
+EHLO, interpretation conflict sur destinataires). **Décision** : on
+**reste** sur `nodemailer@^6.9.13`. Tous les vecteurs nécessitent une
+entrée non-fiable passée à nodemailer ; dans Dance Escape la config
+SMTP, la liste d'emails et le `from` viennent **uniquement** de l'admin
+(personne de confiance), et le corps des emails est généré côté
+serveur. Le fix `nodemailer@8.x` est un saut **major** et l'app est
+**one-shot** — pas la peine de risquer une régression la veille du
+mariage. Ne pas faire `npm audit fix --force`.
+
 ## 8. Déploiement VPS
 
 Voir `README.md`. En résumé :
@@ -248,7 +261,8 @@ pointent vers la bonne URL.
 - Ajouter une DB / un ORM.
 - Introduire un framework front (React, Vue, Svelte…).
 - Ajouter un Dockerfile / docker-compose (sauf demande explicite).
-- Mettre des emojis dans le code (sauf ceux déjà présents dans l'UI :
-  💃 ▶ ♪ ✿).
+- Ajouter de nouveaux emojis ou caractères Unicode décoratifs. Seuls
+  les pictos UI déjà présents (`💃 ▶ ♪ ✿`) sont autorisés — ils font
+  partie du design, ne pas les retirer mais ne pas en ajouter d'autres.
 - Casser la portabilité : tout doit marcher en `npm install && npm
   start`.
