@@ -1,10 +1,10 @@
 node_modules/
-uploads/mp3/*
-uploads/videos/*
-!uploads/mp3/.gitkeep
-!uploads/videos/.gitkeep
-data/config.json
-data/videos.json
 .DS_Store
 *.log
 .env
+
+# Le reste (config admin, MP3, SFX, vidéos invités, etc.) est versionné
+# pour que le clone sur le VPS reparte direct avec la config prête.
+# Si des vidéos invités finissent par poser un problème RGPD ou de
+# poids, on les sortira via git-filter-repo / Git LFS — pas en
+# ajoutant un gitignore (qui ne purge pas l'historique).

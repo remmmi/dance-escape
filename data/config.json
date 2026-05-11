@@ -1,0 +1,38 @@
+{
+  "timings": {
+    "phase1DurationMs": 10000,
+    "buzzerDurationMs": 0,
+    "warningModalMs": 8000,
+    "victoryStartMs": 40000,
+    "totalDurationMs": 60000,
+    "victoryModalMs": 30000
+  },
+  "emails": [],
+  "smtp": {
+    "host": "",
+    "port": 587,
+    "secure": false,
+    "user": "",
+    "pass": "",
+    "from": ""
+  },
+  "secretCode": "CODE-SECRET",
+  "publicBaseUrl": "",
+  "youtube": [
+    {
+      "videoId": "K4Jkh5aAn-0",
+      "title": "au pays d'aragon..",
+      "startSeconds": 0
+    },
+    {
+      "videoId": "yURRmWtbTbo",
+      "title": "MJ Don't Stop 'Til You Get Enough",
+      "startSeconds": 14
+    },
+    {
+      "videoId": "ZNaXb3uuekk",
+      "title": "Sex Machine",
+      "startSeconds": 11
+    }
+  ]
+}
