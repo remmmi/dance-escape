@@ -35,11 +35,12 @@
 
     <div class="card">
       <h2>Liens YouTube (audio uniquement)</h2>
-      <p class="help">Coller une URL YouTube ou juste l'ID. La vidéo est masquée — seul le son est joué.</p>
+      <p class="help">Coller une URL YouTube ou juste l'ID. La vidéo est masquée — seul le son est joué. Le timecode <code>?t=</code> ou <code>?start=</code> de l'URL est repris automatiquement, ou vous pouvez le saisir au format <code>s</code> ou <code>m:ss</code>.</p>
       <div id="yt-list"></div>
       <div class="youtube-row">
         <input id="yt-url" type="url" placeholder="https://www.youtube.com/watch?v=... ou ID">
         <input id="yt-title" type="text" placeholder="Titre (optionnel)">
+        <input id="yt-start" type="text" placeholder="Départ (ex. 42 ou 1:23)" style="max-width:14rem;">
         <button class="btn" id="yt-add">+ Ajouter</button>
       </div>
       <button class="btn secondary" id="yt-save" style="margin-top:.6rem;">Enregistrer</button>
@@ -117,15 +118,61 @@
       return null;
     }
 
+    // YouTube URLs accept t/start in seconds ("?t=42"), with "s" suffix
+    // ("?t=42s") or HH:MM:SS / MM:SS format ("?t=1m23s"). We accept the
+    // common forms.
+    function parseYouTubeStart(input) {
+      const s = (input || '').trim();
+      if (!s) return 0;
+      const m = s.match(/[?&](?:t|start)=([^&#]+)/i);
+      if (!m) return 0;
+      return parseTimecode(m[1]);
+    }
+
+    // "42", "42s", "1:23", "1m23s", "1:02:03" -> seconds
+    function parseTimecode(input) {
+      const s = String(input || '').trim().toLowerCase();
+      if (!s) return 0;
+      if (/^\d+$/.test(s)) return parseInt(s, 10);
+      if (/^\d+s$/.test(s)) return parseInt(s, 10);
+      // h:m:s / m:s
+      if (/^(\d+:)?\d+:\d+$/.test(s)) {
+        const parts = s.split(':').map(n => parseInt(n, 10));
+        if (parts.length === 2) return parts[0] * 60 + parts[1];
+        if (parts.length === 3) return parts[0] * 3600 + parts[1] * 60 + parts[2];
+      }
+      // 1h2m3s / 2m30s / 90s
+      const re = /(\d+)\s*([hms])/g;
+      let total = 0, hit = false, match;
+      while ((match = re.exec(s)) !== null) {
+        hit = true;
+        const n = parseInt(match[1], 10);
+        total += match[2] === 'h' ? n * 3600 : match[2] === 'm' ? n * 60 : n;
+      }
+      return hit ? total : 0;
+    }
+
+    function fmtTimecode(sec) {
+      sec = Math.max(0, Math.floor(Number(sec) || 0));
+      const h = Math.floor(sec / 3600);
+      const m = Math.floor((sec % 3600) / 60);
+      const s = sec % 60;
+      const pad = n => String(n).padStart(2, '0');
+      return h > 0 ? `${h}:${pad(m)}:${pad(s)}` : `${m}:${pad(s)}`;
+    }
+
     function renderYt() {
       const root = document.getElementById('yt-list');
       if (!ytItems.length) {
         root.innerHTML = '<div class="empty">Aucun lien YouTube.</div>';
         return;
       }
-      root.innerHTML = '<div class="chips">' + ytItems.map((y, i) =>
-        `<span class="chip">♪ ${escapeHtml(y.title || y.videoId)} <small style="opacity:.6;">(${escapeHtml(y.videoId)})</small> <button data-yt-del="${i}" title="Retirer">×</button></span>`
-      ).join('') + '</div>';
+      root.innerHTML = '<div class="chips">' + ytItems.map((y, i) => {
+        const startBadge = y.startSeconds > 0
+          ? ` <small style="color:var(--sage-600);">@ ${escapeHtml(fmtTimecode(y.startSeconds))}</small>`
+          : '';
+        return `<span class="chip">♪ ${escapeHtml(y.title || y.videoId)} <small style="opacity:.6;">(${escapeHtml(y.videoId)})</small>${startBadge} <button data-yt-del="${i}" title="Retirer">×</button></span>`;
+      }).join('') + '</div>';
       root.querySelectorAll('[data-yt-del]').forEach(b => {
         b.addEventListener('click', () => {
           ytItems.splice(parseInt(b.getAttribute('data-yt-del'), 10), 1);
@@ -134,14 +181,26 @@
       });
     }
 
+    // When the user pastes a URL with a timecode, auto-fill the start field
+    // (unless they've already typed something there).
+    document.getElementById('yt-url').addEventListener('input', (ev) => {
+      const startEl = document.getElementById('yt-start');
+      if (startEl.value.trim()) return;
+      const sec = parseYouTubeStart(ev.target.value);
+      if (sec > 0) startEl.value = fmtTimecode(sec);
+    });
+
     document.getElementById('yt-add').addEventListener('click', () => {
       const url = document.getElementById('yt-url').value;
       const title = document.getElementById('yt-title').value.trim();
+      const startRaw = document.getElementById('yt-start').value;
       const id = parseYouTube(url);
       if (!id) return toast("URL ou ID YouTube invalide", true);
-      ytItems.push({ videoId: id, title });
+      const startSeconds = parseTimecode(startRaw) || parseYouTubeStart(url);
+      ytItems.push({ videoId: id, title, startSeconds });
       document.getElementById('yt-url').value = '';
       document.getElementById('yt-title').value = '';
+      document.getElementById('yt-start').value = '';
       renderYt();
     });
 

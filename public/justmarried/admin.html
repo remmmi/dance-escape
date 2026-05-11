@@ -58,6 +58,13 @@
     </div>
 
     <div class="card">
+      <h2>Sons personnalisés</h2>
+      <p class="help">Remplacez les sons synthétiques par vos propres fichiers. <strong>WAV mono 16-bit 44.1 kHz</strong> recommandé pour latence quasi-nulle (OGG Opus marche aussi). <strong>Évitez MP3/AAC</strong> (silence en début de fichier). Durée 0.5-2 s, peak vers -3 dBFS, trim agressif au début.</p>
+      <div id="sfx-buzzer" class="sfx-row"></div>
+      <div id="sfx-victory" class="sfx-row" style="margin-top:1rem;"></div>
+    </div>
+
+    <div class="card">
       <h2>Code secret</h2>
       <label>Code affiché à la fin</label>
       <input type="text" id="secret" placeholder="ex. MARIES-2026">
@@ -216,8 +223,74 @@
       } catch (e) { toast('Échec : ' + e.message, true); }
     });
 
+    // --- Custom SFX (buzzer / victory) ---
+    const SFX_LABELS = {
+      buzzer:  { title: "Buzzer (échec)",   desc: "Joué au moment du faux échec." },
+      victory: { title: "Victoire (succès)", desc: "Joué à l'apparition du code." }
+    };
+
+    function fmtSize(n) {
+      if (n < 1024) return n + ' o';
+      if (n < 1024 * 1024) return (n / 1024).toFixed(1) + ' Ko';
+      return (n / (1024 * 1024)).toFixed(1) + ' Mo';
+    }
+
+    async function renderSfx(kind) {
+      const root = document.getElementById('sfx-' + kind);
+      const meta = SFX_LABELS[kind];
+      let info = { url: null, name: null, size: 0 };
+      try { info = await api('/api/admin/sfx/' + kind); } catch {}
+      const hasFile = !!info.url;
+      root.innerHTML = `
+        <div style="display:flex;flex-wrap:wrap;gap:1rem;align-items:center;">
+          <div style="min-width:14rem;">
+            <strong>${meta.title}</strong>
+            <div class="muted" style="font-size:.85rem;">${meta.desc}</div>
+            <div class="muted" style="font-size:.8rem;margin-top:.2rem;">
+              ${hasFile ? `${escapeHtml(info.name)} · ${fmtSize(info.size)}` : 'Aucun fichier — son synthétique utilisé.'}
+            </div>
+          </div>
+          ${hasFile ? `<audio controls preload="none" src="${info.url}" style="height:36px;"></audio>` : ''}
+          <div style="display:flex;gap:.5rem;margin-left:auto;">
+            <label class="btn" style="cursor:pointer;">
+              ${hasFile ? 'Remplacer…' : 'Choisir un fichier…'}
+              <input type="file" accept="audio/*,.wav,.ogg,.opus,.mp3,.m4a" data-sfx-up="${kind}" hidden>
+            </label>
+            ${hasFile ? `<button class="btn danger" data-sfx-del="${kind}">Retirer</button>` : ''}
+          </div>
+        </div>
+      `;
+      root.querySelector('[data-sfx-up]').addEventListener('change', async (ev) => {
+        const file = ev.target.files && ev.target.files[0];
+        if (!file) return;
+        const fd = new FormData();
+        fd.append('file', file);
+        try {
+          const r = await fetch('/api/admin/sfx/' + kind, { method: 'POST', body: fd });
+          if (!r.ok) {
+            const err = await r.json().catch(() => ({}));
+            throw new Error(err.error || 'HTTP ' + r.status);
+          }
+          toast('Son importé');
+          renderSfx(kind);
+        } catch (e) { toast('Échec import : ' + e.message, true); }
+        ev.target.value = '';
+      });
+      const delBtn = root.querySelector('[data-sfx-del]');
+      if (delBtn) delBtn.addEventListener('click', async () => {
+        if (!confirm('Retirer ce son et revenir au son synthétique ?')) return;
+        try {
+          await api('/api/admin/sfx/' + kind, { method: 'DELETE' });
+          toast('Retiré');
+          renderSfx(kind);
+        } catch (e) { toast(e.message, true); }
+      });
+    }
+
     (async () => {
       try { load(await api('/api/admin/config')); } catch (e) { toast(e.message, true); }
+      renderSfx('buzzer');
+      renderSfx('victory');
     })();
   </script>
 </body>

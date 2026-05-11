@@ -13,20 +13,48 @@ const DATA_DIR = path.join(ROOT, 'data');
 const UPLOADS_DIR = path.join(ROOT, 'uploads');
 const MP3_DIR = path.join(UPLOADS_DIR, 'mp3');
 const VIDEOS_DIR = path.join(UPLOADS_DIR, 'videos');
+const SFX_DIR = path.join(UPLOADS_DIR, 'sfx');
 const CONFIG_PATH = path.join(DATA_DIR, 'config.json');
 const VIDEOS_INDEX_PATH = path.join(DATA_DIR, 'videos.json');
 
-for (const d of [DATA_DIR, UPLOADS_DIR, MP3_DIR, VIDEOS_DIR]) {
+for (const d of [DATA_DIR, UPLOADS_DIR, MP3_DIR, VIDEOS_DIR, SFX_DIR]) {
   fs.mkdirSync(d, { recursive: true });
 }
 
+// Custom sound effects (one file per kind: buzzer, victory).
+// Stored as <kind>.<ext> in SFX_DIR — any ext OK as long as the browser
+// can decode it. Whitelist of kinds prevents path injection.
+const SFX_KINDS = ['buzzer', 'victory'];
+function findSfxFile(kind) {
+  if (!SFX_KINDS.includes(kind)) return null;
+  try {
+    const re = new RegExp('^' + kind + '\\.', 'i');
+    return fs.readdirSync(SFX_DIR).find(f => re.test(f)) || null;
+  } catch { return null; }
+}
+function sfxUrl(kind) {
+  const f = findSfxFile(kind);
+  return f ? '/uploads/sfx/' + encodeURIComponent(f) : null;
+}
+function deleteSfx(kind) {
+  if (!SFX_KINDS.includes(kind)) return;
+  try {
+    const re = new RegExp('^' + kind + '\\.', 'i');
+    fs.readdirSync(SFX_DIR).filter(f => re.test(f))
+      .forEach(f => { try { fs.unlinkSync(path.join(SFX_DIR, f)); } catch {} });
+  } catch {}
+}
+
+// Defaults = state actuellement en prod (versionné dans data/config.json
+// aussi, mais ça sert de fallback si le fichier est supprimé). Modifier
+// ici si on veut shipper un nouveau preset.
 const DEFAULT_CONFIG = {
   timings: {
     phase1DurationMs: 10000,
-    buzzerDurationMs: 2500,
+    buzzerDurationMs: 0,
     warningModalMs: 8000,
-    victoryStartMs: 30000,
-    totalDurationMs: 40000,
+    victoryStartMs: 40000,
+    totalDurationMs: 60000,
     victoryModalMs: 30000
   },
   emails: [],
@@ -38,9 +66,13 @@ const DEFAULT_CONFIG = {
     pass: '',
     from: ''
   },
-  secretCode: 'MARIES-2026',
+  secretCode: 'CODE-SECRET',
   publicBaseUrl: '',
-  youtube: []
+  youtube: [
+    { videoId: 'K4Jkh5aAn-0', title: "au pays d'aragon..",                startSeconds: 0  },
+    { videoId: 'yURRmWtbTbo', title: "MJ Don't Stop 'Til You Get Enough", startSeconds: 14 },
+    { videoId: 'ZNaXb3uuekk', title: "Sex Machine",                       startSeconds: 11 }
+  ]
 };
 
 function readJson(p, fallback) {
@@ -101,6 +133,7 @@ app.use(express.urlencoded({ extended: true }));
 // Static
 app.use('/uploads/mp3', express.static(MP3_DIR, { fallthrough: true }));
 app.use('/uploads/videos', express.static(VIDEOS_DIR, { fallthrough: true }));
+app.use('/uploads/sfx', express.static(SFX_DIR, { fallthrough: true }));
 app.use(express.static(path.join(ROOT, 'public')));
 
 // ---- Public kiosk APIs ----
@@ -110,12 +143,21 @@ app.get('/api/session/config', (_req, res) => {
   const mp3Files = fs.readdirSync(MP3_DIR)
     .filter(f => f.toLowerCase().endsWith('.mp3'))
     .map(f => ({ type: 'mp3', url: '/uploads/mp3/' + encodeURIComponent(f), title: f.replace(/\.mp3$/i, '') }));
-  const ytItems = (cfg.youtube || []).map(y => ({ type: 'youtube', videoId: y.videoId, title: y.title || y.videoId }));
+  const ytItems = (cfg.youtube || []).map(y => ({
+    type: 'youtube',
+    videoId: y.videoId,
+    title: y.title || y.videoId,
+    startSeconds: Number.isFinite(y.startSeconds) ? y.startSeconds : 0
+  }));
   const playlist = [...mp3Files, ...ytItems];
   res.json({
     timings: cfg.timings,
     secretCode: cfg.secretCode,
-    playlist
+    playlist,
+    sfx: {
+      buzzerUrl: sfxUrl('buzzer'),
+      victoryUrl: sfxUrl('victory')
+    }
   });
 });
 
@@ -214,10 +256,14 @@ app.post('/api/admin/config', (req, res) => {
   if (typeof incoming.publicBaseUrl === 'string') cur.publicBaseUrl = incoming.publicBaseUrl.replace(/\/+$/, '');
   if (Array.isArray(incoming.youtube)) {
     cur.youtube = incoming.youtube
-      .map(y => ({
-        videoId: String(y.videoId || '').trim(),
-        title: String(y.title || '').trim()
-      }))
+      .map(y => {
+        const s = Number(y.startSeconds);
+        return {
+          videoId: String(y.videoId || '').trim(),
+          title: String(y.title || '').trim(),
+          startSeconds: Number.isFinite(s) && s >= 0 ? Math.floor(s) : 0
+        };
+      })
       .filter(y => y.videoId);
   }
   saveConfig(cur);
@@ -285,6 +331,52 @@ app.delete('/api/admin/mp3/:name', (req, res) => {
   const p = path.join(MP3_DIR, name);
   if (!fs.existsSync(p)) return res.status(404).json({ error: 'introuvable' });
   fs.unlinkSync(p);
+  res.json({ ok: true });
+});
+
+// SFX (buzzer / victory) — upload, info, delete
+const sfxAllowedRe = /\.(wav|ogg|opus|mp3|m4a|aac|webm|flac)$/i;
+function sfxMulter(kind) {
+  return multer({
+    storage: multer.diskStorage({
+      destination: (_req, _file, cb) => cb(null, SFX_DIR),
+      filename: (_req, file, cb) => {
+        const ext = (path.extname(file.originalname || '').toLowerCase().match(/^\.[a-z0-9]+$/) || ['.wav'])[0];
+        cb(null, kind + ext);
+      }
+    }),
+    limits: { fileSize: 5 * 1024 * 1024 },
+    fileFilter: (_req, file, cb) => {
+      if (/^audio\//.test(file.mimetype) || sfxAllowedRe.test(file.originalname)) return cb(null, true);
+      cb(new Error('Fichier audio uniquement (wav, ogg, mp3, m4a, opus...)'));
+    }
+  });
+}
+
+app.get('/api/admin/sfx/:kind', (req, res) => {
+  const kind = req.params.kind;
+  if (!SFX_KINDS.includes(kind)) return res.status(404).json({ error: 'kind inconnu' });
+  const f = findSfxFile(kind);
+  if (!f) return res.json({ url: null, name: null, size: 0 });
+  const st = fs.statSync(path.join(SFX_DIR, f));
+  res.json({ url: '/uploads/sfx/' + encodeURIComponent(f), name: f, size: st.size });
+});
+
+app.post('/api/admin/sfx/:kind', (req, res) => {
+  const kind = req.params.kind;
+  if (!SFX_KINDS.includes(kind)) return res.status(404).json({ error: 'kind inconnu' });
+  deleteSfx(kind); // remove any previous file (different ext etc.)
+  sfxMulter(kind).single('file')(req, res, (err) => {
+    if (err) return res.status(400).json({ error: err.message });
+    if (!req.file) return res.status(400).json({ error: 'no file' });
+    res.json({ ok: true, name: req.file.filename, url: '/uploads/sfx/' + encodeURIComponent(req.file.filename) });
+  });
+});
+
+app.delete('/api/admin/sfx/:kind', (req, res) => {
+  const kind = req.params.kind;
+  if (!SFX_KINDS.includes(kind)) return res.status(404).json({ error: 'kind inconnu' });
+  deleteSfx(kind);
   res.json({ ok: true });
 });
 
