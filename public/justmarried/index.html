@@ -38,8 +38,42 @@
     <div class="card">
       <h2>Tester le kiosk</h2>
       <p class="muted">Ouvrez <code>/</code> dans le navigateur en mode kiosk plein écran.</p>
-      <p class="help">Astuce : sur Chromium, lancez <code>chromium --kiosk http://localhost:3000/</code>.</p>
+      <p class="help">
+        Astuce : sur Chromium, lancez
+        <code id="kiosk-cmd">chromium --kiosk …</code>
+        <button id="kiosk-copy" type="button" class="btn" style="margin-left:.5rem;padding:.15rem .55rem;font-size:.85em;">Copier</button>
+        <span id="kiosk-cmd-hint" class="muted" style="display:block;margin-top:.25rem;font-size:.85em;"></span>
+      </p>
     </div>
   </main>
+
+  <script src="/justmarried/js/admin-common.js"></script>
+  <script>
+    (async () => {
+      const codeEl = document.getElementById('kiosk-cmd');
+      const hintEl = document.getElementById('kiosk-cmd-hint');
+      const btn = document.getElementById('kiosk-copy');
+      let url = null;
+      try {
+        const c = await Admin.api('/api/admin/config');
+        const base = (c && c.publicBaseUrl || '').trim().replace(/\/+$/, '');
+        if (base) {
+          url = base + '/';
+        }
+      } catch {}
+      if (url) {
+        const cmd = 'chromium --kiosk --noerrdialogs --disable-infobars --autoplay-policy=no-user-gesture-required ' + url;
+        codeEl.textContent = cmd;
+        hintEl.textContent = 'URL tirée de Réglages → URL publique.';
+        btn.addEventListener('click', async () => {
+          try { await navigator.clipboard.writeText(cmd); btn.textContent = '✓ Copié'; setTimeout(() => btn.textContent = 'Copier', 1500); }
+          catch { btn.textContent = '×'; }
+        });
+      } else {
+        codeEl.textContent = '⚠ Configurez d’abord l’URL publique dans Réglages.';
+        btn.style.display = 'none';
+      }
+    })();
+  </script>
 </body>
 </html>

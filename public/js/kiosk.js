@@ -193,6 +193,7 @@
   let preparedTrack = null;    // the track picked for the next session
   let currentTrack = null;
   let musicTargetVolume = 1.0;
+  let musicStartCtxTime = 0;   // AudioContext.currentTime at music start (MP3 BufferSource path)
 
   function loadYouTubeAPI() {
     if (window.YT && window.YT.Player) return Promise.resolve();
@@ -233,6 +234,7 @@
         musicGain = ctx.createGain();
         musicGain.gain.setValueAtTime(musicTargetVolume, ctx.currentTime);
         musicSrc.connect(musicGain).connect(ctx.destination);
+        musicStartCtxTime = ctx.currentTime;
         musicSrc.start(0);
       } else {
         musicEl = new Audio(track.url);
@@ -398,6 +400,34 @@
       d.id = 'yt-host'; d.className = 'yt-host'; d.setAttribute('aria-hidden', 'true');
       document.body.appendChild(d);
     }
+  }
+
+  // Compute how many ms remain on the currently-playing track. For MP3 in
+  // loop mode we return the remainder of the current loop iteration. For
+  // YouTube we use the iframe API. Returns 0 if nothing playing or unknown.
+  function remainingMusicMs() {
+    try {
+      if (musicSrc && musicSrc.buffer) {
+        const durSec = musicSrc.buffer.duration;
+        const elapsed = ac().currentTime - musicStartCtxTime;
+        const inLoop = ((elapsed % durSec) + durSec) % durSec;
+        return Math.max(0, (durSec - inLoop) * 1000);
+      }
+      if (musicEl) {
+        const total = Number(musicEl.duration);
+        if (isFinite(total) && total > 0) {
+          return Math.max(0, (total - musicEl.currentTime) * 1000);
+        }
+      }
+      if (ytPlayer && typeof ytPlayer.getDuration === 'function') {
+        const total = ytPlayer.getDuration();
+        const pos = ytPlayer.getCurrentTime();
+        if (isFinite(total) && total > 0) {
+          return Math.max(0, (total - pos) * 1000);
+        }
+      }
+    } catch {}
+    return 0;
   }
 
   // ---- recording ----
@@ -590,6 +620,8 @@
   async function runSession() {
     if (busy) return;
     busy = true;
+    // Defensive: stop any leftover music from a previous session.
+    stopMusic();
     try {
       cfg = await fetchConfig();
       // Refresh SFX URLs (admin may have replaced them since boot) and
@@ -693,16 +725,39 @@
     const modalElapsed = performance.now() - victoryShownAt;
     await sleep(Math.max(0, victoryModalMs - modalElapsed));
 
-    // Final reset: cut the music, hide the modal, back to idle.
-    stopMusic();
+    // Phase 8: modal closed but the session stays "busy" until the music
+    // ends. The kiosk remains on the dance screen with the camera preview
+    // while the track plays out, then fades over its last 10s.
+    // A hard cap (cfg.timings.postModalMaxMs) can shorten this window;
+    // 0 (default) means "play until end of song, no cap".
     hideModal(modalVictory);
     timerFill.style.width = '0%';
+
+    const FADE_MS = 10000;
+    const remaining = remainingMusicMs();
+    const hardCapMs = Math.max(0, Number(cfg.timings.postModalMaxMs) || 0);
+    const lingerMs = remaining <= 0
+      ? 0
+      : (hardCapMs > 0 ? Math.min(remaining, hardCapMs) : remaining);
+
+    if (lingerMs > FADE_MS) {
+      await sleep(lingerMs - FADE_MS);
+      fadeMusic(0, FADE_MS);
+      await sleep(FADE_MS);
+    } else if (lingerMs > 0) {
+      // Window shorter than the fade: shrink the fade to fit.
+      const fade = Math.max(500, lingerMs - 200);
+      fadeMusic(0, fade);
+      await sleep(lingerMs);
+    }
+
+    // Final reset: cut the music, back to idle, ready for the next guest.
+    stopMusic();
     showScreen('idle');
     resetDebugChrono();
     busy = false;
 
-    // Prepare the next session now that yt-host is free (stopMusic
-    // destroyed the active YT player and recreated the host).
+    // Prepare the next session now that yt-host is free.
     prepareNextTrack(cfg).catch(e => console.warn('[prepareNext]', e.message));
   }
 

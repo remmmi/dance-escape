@@ -55,7 +55,10 @@ const DEFAULT_CONFIG = {
     warningModalMs: 8000,
     victoryStartMs: 40000,
     totalDurationMs: 60000,
-    victoryModalMs: 30000
+    victoryModalMs: 30000,
+    // Plafond dur de la phase post-modal (musique qui termine + fade 10s).
+    // 0 = pas de plafond, on laisse le morceau aller jusqu'au bout.
+    postModalMaxMs: 0
   },
   emails: [],
   smtp: {
