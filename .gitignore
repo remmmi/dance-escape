@@ -3,8 +3,10 @@ node_modules/
 *.log
 .env
 
-# Le reste (config admin, MP3, SFX, vidéos invités, etc.) est versionné
-# pour que le clone sur le VPS reparte direct avec la config prête.
-# Si des vidéos invités finissent par poser un problème RGPD ou de
-# poids, on les sortira via git-filter-repo / Git LFS — pas en
-# ajoutant un gitignore (qui ne purge pas l'historique).
+# Vidéos enregistrées par les invités : ignorées par défaut (poids +
+# RGPD). On garde uniquement la vidéo de démo versionnée pour repartir
+# avec quelque chose après un clone fresh. Ajouter ici une exception
+# explicite si on veut versionner d'autres vidéos.
+uploads/videos/*
+!uploads/videos/.gitkeep
+!uploads/videos/1778542291010-9a86aeb268f5.webm
