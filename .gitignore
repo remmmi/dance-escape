@@ -10,7 +10,6 @@ node_modules/
 # explicite si on veut versionner d'autres vidéos.
 uploads/videos/*
 !uploads/videos/.gitkeep
-!uploads/videos/1778542291010-9a86aeb268f5.webm
 
 # Corbeille des vidéos soft-supprimées (déplacées depuis videos.html).
 # Le dossier est recréé automatiquement au boot par server.js,
