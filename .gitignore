@@ -16,3 +16,10 @@ uploads/videos/*
 # inutile de le versionner. Règle explicite pour la lisibilité même
 # si techniquement déjà couverte par "uploads/videos/*" ci-dessus.
 uploads/videos/deleted/
+
+# Données live générées au runtime — jamais commitées.
+# Le repo démarre avec DEFAULT_CONFIG (anonymisé) dans server.js,
+# server.js crée data/config.json au premier lancement.
+data/config.json
+data/videos.json
+data/videos-deleted.json
