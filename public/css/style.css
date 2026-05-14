@@ -24,12 +24,13 @@
   --ink:      #3A4730;
   --shadow:   0 12px 30px rgba(58, 71, 48, .22), 0 2px 6px rgba(58, 71, 48, .14);
 
-  /* Deux polices, choisies par fonctionnalité :
-     --font-display : moments forts/émotionnels (titres décoratifs,
-       appels à l'action). Italianno = script romantique, manuscrite.
+  /* Deux polices, direction Art Nouveau moderne :
+     --font-display : titres décoratifs, appels à l'action. Marcellus
+       = serif elegant inspire Art Nouveau, mais reste lisible a 2m
+       (vs Italianno script qui etait illisible de loin).
      --font-body : tout le reste, lecture à distance et UI utilitaire.
        Cormorant Garamond couvre du gros corps lisible aux petits labels. */
-  --font-display: "Italianno", "Allura", cursive;
+  --font-display: "Marcellus", "Cormorant Garamond", serif;
   --font-body:    "Cormorant Garamond", "Times New Roman", serif;
 }
 
@@ -48,16 +49,43 @@ body {
   -webkit-font-smoothing: antialiased;
 }
 
-/* Décor d'angle adouci : présent mais ne distrait pas le contenu */
-.leaves {
-  position: fixed; width: 320px; height: 320px; pointer-events: none;
-  background:
-    radial-gradient(closest-side, rgba(141, 160, 120, .18), transparent 70%);
-  filter: blur(4px);
-  opacity: .7;
+/* Decor Art Nouveau : whiplash + rose stylisee. SVG colore en dur
+   (sage + rose), utilise en background-image. Deux groupes :
+   - 4 coins : grand format, ancres tournees vers le centre
+   - 4 bordures milieu : plus petits, miroirs, formant un cadre floral
+     supplementaire entre les coins. */
+.corner-ornament {
+  position: fixed;
+  pointer-events: none;
+  background: url('/img/ornament-corner.svg') no-repeat center / contain;
+  z-index: 1; /* derrière le contenu mais devant le body gradient */
 }
-.leaves-tl { top: -140px; left: -140px; transform: rotate(-15deg); }
-.leaves-br { bottom: -160px; right: -160px; transform: rotate(20deg); }
+
+/* Grands ornements d'angle (x2) */
+.corner-tl, .corner-tr, .corner-bl, .corner-br {
+  width: clamp(320px, 48vmin, 560px);
+  height: clamp(320px, 48vmin, 560px);
+  opacity: .75;
+}
+.corner-tl { top: 1vmin;    left: 1vmin;    transform: rotate(0deg); }
+.corner-tr { top: 1vmin;    right: 1vmin;   transform: rotate(90deg); }
+.corner-br { bottom: 1vmin; right: 1vmin;   transform: rotate(180deg); }
+.corner-bl { bottom: 1vmin; left: 1vmin;    transform: rotate(270deg); }
+
+/* Ornements de milieu de bord : plus petits, plus discrets,
+   inverses horizontalement pour creer des paires miroirs face-a-face
+   sur chaque bord (haut & bas). */
+.edge-top-left, .edge-top-right, .edge-bot-left, .edge-bot-right {
+  width: clamp(220px, 32vmin, 360px);
+  height: clamp(220px, 32vmin, 360px);
+  opacity: .55;
+}
+/* Bord haut : deux ornements symetriques sortant vers le centre */
+.edge-top-left  { top: -2vmin; left:  35%;  transform: rotate(45deg) scale(.85); }
+.edge-top-right { top: -2vmin; right: 35%;  transform: rotate(45deg) scale(.85, -.85) scaleX(-1); }
+/* Bord bas */
+.edge-bot-left  { bottom: -2vmin; left:  35%;  transform: rotate(225deg) scale(.85, -.85) scaleX(-1); }
+.edge-bot-right { bottom: -2vmin; right: 35%;  transform: rotate(225deg) scale(.85); }
 
 .screen {
   position: fixed; inset: 0;
@@ -90,8 +118,9 @@ body {
 .title-script {
   font-family: var(--font-display);
   font-weight: 400;
-  font-size: clamp(7.5rem, 19vmin, 18rem);
-  line-height: .88;
+  font-size: clamp(5.5rem, 14vmin, 13rem);
+  line-height: 1.05;
+  letter-spacing: .015em;
   margin: 0 0 .4rem;
   color: var(--sage-700);
   text-shadow: 0 1px 0 #fff;
@@ -151,13 +180,17 @@ body {
   position: absolute;
   width: 42vmin; height: 42vmin;
   border-radius: 50%;
-  border: 3px solid rgba(71, 84, 55, .5);
-  animation: pulse 1.4s ease-out infinite;
+  border: 3px solid transparent;
+  animation: pulse 1.6s ease-out infinite;
 }
-.pulse-ring.delayed { animation-delay: .7s; border-color: rgba(138, 106, 31, .45); }
+.pulse-ring.pulse-sage { border-color: rgba(71, 84, 55, .55); }
+.pulse-ring.pulse-rose { border-color: rgba(168, 106, 92, .55); }
+.pulse-ring.pulse-d1   { animation-delay: .4s; }
+.pulse-ring.pulse-d2   { animation-delay: .8s; }
+.pulse-ring.pulse-d3   { animation-delay: 1.2s; }
 @keyframes pulse {
-  0%   { transform: scale(.55); opacity: .95; }
-  100% { transform: scale(1.7); opacity: 0; }
+  0%   { transform: scale(.4);  opacity: .95; }
+  100% { transform: scale(1.85); opacity: 0; }
 }
 
 .dancer {
@@ -173,10 +206,11 @@ body {
 
 .dance-call {
   font-family: var(--font-display);
-  font-size: clamp(7rem, 16vmin, 14rem);
+  font-size: clamp(5rem, 12vmin, 10rem);
   color: var(--sage-700);
   margin: 0;
-  line-height: .9;
+  line-height: 1.05;
+  letter-spacing: .02em;
   text-shadow: 0 1px 0 #fff;
 }
 .dance-sub {
@@ -268,10 +302,11 @@ body {
 }
 .countdown {
   font-family: var(--font-display);
-  font-size: clamp(14rem, 32vmin, 26rem);
+  font-size: clamp(10rem, 26vmin, 22rem);
   color: var(--rose-2);
-  line-height: .9;
+  line-height: 1;
   margin: 0;
+  font-weight: 400;
   font-variant-numeric: tabular-nums;
   text-shadow: 0 2px 0 #fff;
 }
@@ -282,6 +317,22 @@ body {
 .modal-card.victory {
   border-color: var(--gold);
   background: linear-gradient(180deg, #FFF7E2, var(--cream));
+}
+/* Modales annexes : fond sage profond, texte cream pour contraste. */
+.modal-card.info {
+  background: linear-gradient(180deg, var(--sage-700), var(--sage-800));
+  border-color: var(--sage-500);
+  color: var(--cream);
+}
+.modal-card.info h2 {
+  color: var(--cream);
+  font-family: var(--font-display);
+  font-weight: 400;
+  font-size: clamp(3rem, 7vmin, 6rem);
+}
+.modal-card.info p {
+  color: var(--cream);
+  max-width: 80%;
 }
 .secret-code {
   font-family: var(--font-body);
@@ -303,7 +354,10 @@ body {
 .confetti {
   position: fixed; inset: 0;
   pointer-events: none;
-  z-index: 40;
+  /* Au-dessus du modal (50) et du toast (100) pour que les confettis
+     soient visibles par dessus la modale victoire et son fond. Sous
+     le debug chrono (200) qui doit rester toujours lisible. */
+  z-index: 150;
   display: none;
 }
 .confetti.active { display: block; }

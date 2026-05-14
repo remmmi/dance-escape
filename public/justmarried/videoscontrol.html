@@ -3,7 +3,8 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Vidéos · Just Married</title>
+  <meta name="robots" content="noindex,nofollow">
+  <title>Vidéos supprimées · Just Married</title>
   <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@400;500;600;700&family=Marcellus&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="/justmarried/css/admin.css">
 </head>
@@ -12,14 +13,14 @@
     <a class="nav-brand" href="/" target="_blank" rel="noopener" title="Ouvrir le kiosk dans un nouvel onglet">Just Married <small>·</small></a>
     <a href="/justmarried/index.html">Accueil</a>
     <a href="/justmarried/mp3.html">Musiques</a>
-    <a href="/justmarried/videos.html" class="active">Vidéos</a>
+    <a href="/justmarried/videos.html">Vidéos</a>
     <a href="/justmarried/admin.html">Réglages</a>
     <a href="/" target="_blank" style="margin-left:auto;">↗ Kiosk</a>
   </header>
 
   <main>
-    <h1>Vidéos des danses</h1>
-    <p class="lead">Cliquez sur une miniature pour ouvrir en lightbox.</p>
+    <h1>Vidéos supprimées</h1>
+    <p class="lead">Corbeille des vidéos retirées depuis la page Vidéos. Vous pouvez les <strong>restaurer</strong> ou les supprimer <strong>définitivement</strong>.</p>
 
     <div class="card">
       <div class="toolbar">
@@ -48,15 +49,16 @@
 
     async function load() {
       try {
-        const list = await api('/api/admin/videos');
-        document.getElementById('count').textContent = list.length + ' vidéo(s)';
+        const list = await api('/api/admin/videos-deleted');
+        document.getElementById('count').textContent = list.length + ' vidéo(s) dans la corbeille';
         const grid = document.getElementById('grid');
         if (!list.length) {
-          grid.innerHTML = '<div class="empty">Aucune vidéo encore enregistrée.</div>';
+          grid.innerHTML = '<div class="empty">Corbeille vide.</div>';
           return;
         }
         grid.innerHTML = list.map(v => {
-          const url = '/uploads/videos/' + encodeURIComponent(v.filename);
+          // Les videos soft-supprimees vivent dans /uploads/videos/deleted/
+          const url = '/uploads/videos/deleted/' + encodeURIComponent(v.filename);
           return `
           <div class="video-card">
             <div class="video-thumb" data-open="${escapeHtml(url)}" data-music="${escapeHtml(v.music || '')}" data-date="${escapeHtml(v.createdAt || '')}">
@@ -66,23 +68,33 @@
             <div class="video-meta">
               <div class="date">${fmtDate(v.createdAt)}</div>
               <div class="music">♪ ${escapeHtml(v.music || '—')}</div>
-              <div class="muted">${fmtSize(v.size)}</div>
+              <div class="muted">${fmtSize(v.size)} · supprimée ${fmtDate(v.deletedAt)}</div>
             </div>
             <div class="video-actions">
               <a class="btn secondary" href="${url}" download="${escapeHtml(v.filename)}">⤓ Télécharger</a>
-              <button class="btn danger" data-del="${v.id}">Supprimer</button>
+              <button class="btn" data-restore="${v.id}" style="background:var(--sage-500);color:var(--cream);">↺ Restaurer</button>
+              <button class="btn danger" data-purge="${v.id}">Supprimer définitivement</button>
             </div>
           </div>`;
         }).join('');
         grid.querySelectorAll('[data-open]').forEach(el => {
           el.addEventListener('click', () => openLightbox(el.getAttribute('data-open'), el.getAttribute('data-music'), el.getAttribute('data-date')));
         });
-        grid.querySelectorAll('[data-del]').forEach(b => {
+        grid.querySelectorAll('[data-restore]').forEach(b => {
           b.addEventListener('click', async () => {
-            if (!confirmDelete('Supprimer cette vidéo définitivement ?')) return;
             try {
-              await api('/api/admin/videos/' + b.getAttribute('data-del'), { method: 'DELETE' });
-              toast('Supprimé');
+              await api('/api/admin/videos-deleted/' + b.getAttribute('data-restore') + '/restore', { method: 'POST' });
+              toast('Restaurée');
+              load();
+            } catch (e) { toast(e.message, true); }
+          });
+        });
+        grid.querySelectorAll('[data-purge]').forEach(b => {
+          b.addEventListener('click', async () => {
+            if (!confirmDelete('Supprimer cette vidéo DÉFINITIVEMENT ? Action irréversible.')) return;
+            try {
+              await api('/api/admin/videos-deleted/' + b.getAttribute('data-purge'), { method: 'DELETE' });
+              toast('Supprimée définitivement');
               load();
             } catch (e) { toast(e.message, true); }
           });

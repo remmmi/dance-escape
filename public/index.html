@@ -6,12 +6,21 @@
   <title>Dance Escape</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,500;0,600;0,700;1,500;1,600&family=Italianno&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,500;0,600;0,700;1,500;1,600&family=Marcellus&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="/css/style.css">
 </head>
 <body class="kiosk">
-  <div class="leaves leaves-tl" aria-hidden="true"></div>
-  <div class="leaves leaves-br" aria-hidden="true"></div>
+  <!-- Ornements Art Nouveau : 4 coins + paires miroir sur les milieux
+       de bord (effet cadre floral autour du contenu central). -->
+  <div class="corner-ornament corner-tl" aria-hidden="true"></div>
+  <div class="corner-ornament corner-tr" aria-hidden="true"></div>
+  <div class="corner-ornament corner-bl" aria-hidden="true"></div>
+  <div class="corner-ornament corner-br" aria-hidden="true"></div>
+  <!-- Paires miroir bord haut/bas (plus petites, en retrait) -->
+  <div class="corner-ornament edge-top-left"    aria-hidden="true"></div>
+  <div class="corner-ornament edge-top-right"   aria-hidden="true"></div>
+  <div class="corner-ornament edge-bot-left"    aria-hidden="true"></div>
+  <div class="corner-ornament edge-bot-right"   aria-hidden="true"></div>
 
   <main id="screen-idle" class="screen visible">
     <div class="frame">
@@ -27,8 +36,12 @@
 
   <section id="screen-dance" class="screen" aria-hidden="true">
     <div class="dance-stage">
-      <div class="pulse-ring"></div>
-      <div class="pulse-ring delayed"></div>
+      <!-- 4 anneaux qui partent du centre et s'élargissent en alternance
+           sauge / rose. Les délais en cascade créent une onde continue. -->
+      <div class="pulse-ring pulse-sage"></div>
+      <div class="pulse-ring pulse-rose pulse-d1"></div>
+      <div class="pulse-ring pulse-sage pulse-d2"></div>
+      <div class="pulse-ring pulse-rose pulse-d3"></div>
       <div class="dancer" aria-hidden="true">
         <span class="emoji">💃</span>
       </div>
@@ -56,6 +69,16 @@
       <h2 data-text="victoryTitle">Code secret</h2>
       <div class="secret-code" id="secret-code">—</div>
       <p class="sub" data-text="victorySub">Notez-le bien et passez à l'épreuve suivante.</p>
+    </div>
+  </div>
+
+  <!-- Modal annexe (system M-n) : overlay sauge avec titre + message,
+       declenche par customModals[] de la config. Independant de la
+       timeline T1-T5, n'affecte ni musique ni events. -->
+  <div id="modal-custom" class="modal" aria-hidden="true">
+    <div class="modal-card info">
+      <h2 id="custom-title"></h2>
+      <p id="custom-message"></p>
     </div>
   </div>
 

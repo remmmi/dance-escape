@@ -1,0 +1,206 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="robots" content="noindex,nofollow">
+  <title>Votre danse · Dance Escape</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@400;500;600;700&family=Marcellus&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --sage-500: #7B8D69;
+      --sage-600: #5F6F4F;
+      --sage-700: #475437;
+      --sage-800: #34402A;
+      --cream:    #FBF8F1;
+      --cream-2:  #F5EFE3;
+      --rose:     #E6C9C0;
+      --rose-2:   #A86A5C;
+      --gold:     #8A6A1F;
+      --ink:      #3A4730;
+    }
+    * { box-sizing: border-box; }
+    html, body { margin: 0; min-height: 100vh; }
+    body {
+      font-family: "Cormorant Garamond", "Times New Roman", serif;
+      color: var(--ink);
+      background:
+        radial-gradient(900px 500px at 15% -5%, rgba(230, 201, 192, .18), transparent 60%),
+        radial-gradient(700px 400px at 115% 105%, rgba(141, 160, 120, .22), transparent 60%),
+        linear-gradient(180deg, var(--cream) 0%, var(--cream-2) 100%);
+      padding: 4vmin 4vmin 6vmin;
+      -webkit-font-smoothing: antialiased;
+    }
+    main {
+      max-width: 920px;
+      margin: 0 auto;
+      text-align: center;
+    }
+    .overline {
+      font-family: "Cormorant Garamond", serif;
+      letter-spacing: .42em;
+      text-transform: uppercase;
+      font-size: clamp(.85rem, 1.4vmin, 1.1rem);
+      font-weight: 600;
+      color: var(--sage-600);
+      margin: 0 0 .6rem;
+    }
+    h1 {
+      font-family: "Marcellus", serif;
+      font-weight: 400;
+      letter-spacing: .015em;
+      font-size: clamp(2.5rem, 6vmin, 4.5rem);
+      color: var(--sage-700);
+      margin: 0 0 1.6rem;
+      line-height: 1.05;
+    }
+    .player-wrap {
+      background: rgba(255,255,255,.7);
+      border: 1px solid rgba(95,111,79,.22);
+      border-radius: 22px;
+      padding: clamp(.8rem, 2vmin, 1.6rem);
+      box-shadow: 0 12px 30px rgba(58,71,48,.18), 0 2px 6px rgba(58,71,48,.1);
+      overflow: hidden;
+    }
+    video {
+      width: 100%;
+      max-height: 70vh;
+      display: block;
+      background: #000;
+      border-radius: 14px;
+    }
+    .meta {
+      margin-top: 1rem;
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: center;
+      gap: 1.2rem;
+      color: var(--sage-700);
+      font-size: clamp(1rem, 1.6vmin, 1.2rem);
+    }
+    .meta strong { font-weight: 600; }
+    .actions {
+      margin-top: 1.4rem;
+      display: flex;
+      gap: .8rem;
+      justify-content: center;
+      flex-wrap: wrap;
+    }
+    .btn {
+      font-family: "Marcellus", serif;
+      font-size: 1.05rem;
+      letter-spacing: .02em;
+      color: var(--cream);
+      background: var(--sage-700);
+      border: none;
+      padding: .8em 1.6em;
+      border-radius: 999px;
+      text-decoration: none;
+      display: inline-block;
+      cursor: pointer;
+      transition: background .15s, transform .1s;
+    }
+    .btn:hover { background: var(--sage-800); }
+    .btn:active { transform: translateY(1px); }
+    .btn.secondary {
+      background: transparent;
+      color: var(--sage-700);
+      border: 1.5px solid var(--sage-500);
+    }
+    .btn.secondary:hover { background: rgba(123,141,105,.12); }
+    .error {
+      padding: 2rem;
+      color: var(--rose-2);
+      font-style: italic;
+    }
+    .loader {
+      padding: 2rem;
+      color: var(--sage-600);
+      font-style: italic;
+    }
+  </style>
+</head>
+<body>
+  <main>
+    <p class="overline">Dance Escape</p>
+    <h1>Votre danse, capturée</h1>
+
+    <div id="content" class="loader">Chargement…</div>
+  </main>
+
+  <script>
+    // MediaRecorder WebM duration fix : seek to end pour forcer le
+    // navigateur a lire la vraie duree depuis le timestamp du dernier
+    // frame. Sans cela, duration = Infinity et la progress bar est
+    // cassee. Trick reconnu (cf. webmrecorder, ts-ebml, etc.)
+    function fixVideoDuration(video) {
+      const fix = () => {
+        if (!isFinite(video.duration) || isNaN(video.duration)) {
+          const onTime = () => {
+            video.removeEventListener('timeupdate', onTime);
+            try { video.currentTime = 0; } catch {}
+          };
+          video.addEventListener('timeupdate', onTime);
+          try { video.currentTime = 1e10; } catch {}
+        }
+      };
+      if (video.readyState >= 1) fix();
+      else video.addEventListener('loadedmetadata', fix, { once: true });
+    }
+
+    function fmtDate(iso) {
+      if (!iso) return '';
+      try {
+        return new Date(iso).toLocaleString('fr-FR', { dateStyle: 'long', timeStyle: 'short' });
+      } catch { return iso; }
+    }
+    function fmtSize(b) {
+      if (!b && b !== 0) return '';
+      const u = ['o','Ko','Mo','Go']; let n = b, i = 0;
+      while (n >= 1024 && i < u.length - 1) { n /= 1024; i++; }
+      return n.toFixed(n < 10 ? 1 : 0) + ' ' + u[i];
+    }
+    function escapeHtml(s) {
+      return String(s).replace(/[&<>"']/g, c => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[c]));
+    }
+
+    async function load() {
+      const id = new URLSearchParams(location.search).get('id');
+      const content = document.getElementById('content');
+      if (!id) {
+        content.className = 'error';
+        content.textContent = 'Lien invalide : identifiant de vidéo manquant.';
+        return;
+      }
+      try {
+        const r = await fetch('/api/v/' + encodeURIComponent(id));
+        if (!r.ok) throw new Error(r.status === 404 ? 'Vidéo introuvable (elle a peut-être été supprimée).' : 'Erreur ' + r.status);
+        const v = await r.json();
+        content.className = '';
+        content.innerHTML = `
+          <div class="player-wrap">
+            <video id="video" controls playsinline preload="metadata" poster=""></video>
+          </div>
+          <div class="meta">
+            <span>📅 <strong>${escapeHtml(fmtDate(v.createdAt))}</strong></span>
+            ${v.music ? `<span>♪ <strong>${escapeHtml(v.music)}</strong></span>` : ''}
+            <span>📦 <strong>${escapeHtml(fmtSize(v.size))}</strong></span>
+          </div>
+          <div class="actions">
+            <a class="btn" href="${escapeHtml(v.url)}" download="${escapeHtml(v.filename)}">⤓ Télécharger la vidéo</a>
+          </div>
+        `;
+        const video = document.getElementById('video');
+        video.src = v.url;
+        fixVideoDuration(video);
+      } catch (e) {
+        content.className = 'error';
+        content.textContent = e.message;
+      }
+    }
+    load();
+  </script>
+</body>
+</html>

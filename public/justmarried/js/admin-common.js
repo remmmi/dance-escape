@@ -42,5 +42,26 @@ window.Admin = (() => {
   function fmtSec(ms) {
     return msToSec(ms).toFixed(1) + ' s';
   }
-  return { toast, fmtDate, fmtSize, api, confirmDelete, msToSec, secToMs, fmtSec };
+  // MediaRecorder WebM duration fix : les fichiers .webm enregistres par
+  // MediaRecorder ont une duree "Infinity" dans le header car le format
+  // permet un stream non finalise. Pour debloquer la progress bar du
+  // player, on seek tout au bout du fichier, ce qui force le navigateur
+  // a lire le timestamp du dernier frame et corriger video.duration.
+  // Ensuite on revient a 0.
+  function fixVideoDuration(videoEl) {
+    if (!videoEl) return;
+    const ready = () => {
+      if (!isFinite(videoEl.duration) || isNaN(videoEl.duration)) {
+        const onTime = () => {
+          videoEl.removeEventListener('timeupdate', onTime);
+          try { videoEl.currentTime = 0; } catch {}
+        };
+        videoEl.addEventListener('timeupdate', onTime);
+        try { videoEl.currentTime = 1e10; } catch {}
+      }
+    };
+    if (videoEl.readyState >= 1) ready();
+    else videoEl.addEventListener('loadedmetadata', ready, { once: true });
+  }
+  return { toast, fmtDate, fmtSize, api, confirmDelete, msToSec, secToMs, fmtSec, fixVideoDuration };
 })();

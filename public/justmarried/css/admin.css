@@ -28,15 +28,27 @@ header.nav {
   backdrop-filter: blur(6px);
   position: sticky; top: 0; z-index: 10;
 }
-.nav-brand {
+/* Specificite .nav .nav-brand = (0,2,0) > .nav a = (0,1,1), donc
+   nos regles brand gagnent meme si .nav a est declare apres. */
+.nav .nav-brand {
   font-family: "Cormorant Garamond", serif;
   font-weight: 700; font-size: 1.4rem;
   color: var(--sage-700);
   letter-spacing: .04em;
+  text-decoration: none;
+  padding: 0;
+  border-radius: 0;
+  background: transparent;
+  transition: opacity .15s;
+}
+.nav .nav-brand:hover {
+  background: transparent;
+  opacity: .7;
 }
 .nav-brand small {
-  font-family: "Italianno", cursive;
-  font-weight: 400; font-size: 1.6rem; margin-left: .4rem;
+  font-family: "Marcellus", serif;
+  font-weight: 400; font-size: 1.05rem; margin-left: .3rem;
+  letter-spacing: .04em;
   color: var(--rose-2);
 }
 .nav a {
@@ -50,9 +62,10 @@ header.nav {
 main { max-width: 1100px; margin: 0 auto; padding: 2rem; }
 
 h1 {
-  font-family: "Cormorant Garamond", serif;
-  font-weight: 700; color: var(--sage-700);
-  font-size: 2.2rem; margin: 0 0 .3rem;
+  font-family: "Marcellus", serif;
+  font-weight: 400; color: var(--sage-700);
+  font-size: 2.4rem; margin: 0 0 .3rem;
+  letter-spacing: .015em;
 }
 .lead { color: var(--sage-600); margin: 0 0 1.6rem; font-style: italic; }
 
@@ -70,6 +83,13 @@ h1 {
   margin: 0 0 1rem;
   color: var(--sage-700);
   font-size: 1.4rem;
+}
+.card h3 {
+  font-family: "Cormorant Garamond", serif;
+  font-weight: 600;
+  color: var(--sage-600);
+  font-size: 1.05rem;
+  letter-spacing: .01em;
 }
 
 label { display: block; font-size: .82rem; color: var(--sage-600); margin: .8rem 0 .25rem; font-weight: 500; }

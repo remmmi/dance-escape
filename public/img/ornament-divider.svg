@@ -1,0 +1,60 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 40" aria-hidden="true">
+  <!--
+    Diviseur horizontal Art Nouveau. Une ligne sinueuse sauge,
+    une rose centrale, deux feuilles symétriques. Pour séparer des
+    sections de page sans rompre la verticalité du contenu.
+  -->
+  <defs>
+    <radialGradient id="dvRoseCore" cx="38%" cy="35%" r="65%">
+      <stop offset="0%"   stop-color="#FFF1E8"/>
+      <stop offset="20%"  stop-color="#F5D2C6"/>
+      <stop offset="55%"  stop-color="#D9A89C"/>
+      <stop offset="100%" stop-color="#5A2418"/>
+    </radialGradient>
+    <radialGradient id="dvPetal" cx="40%" cy="35%" r="70%">
+      <stop offset="0%"   stop-color="#FBE4DA"/>
+      <stop offset="100%" stop-color="#C49A8E"/>
+    </radialGradient>
+  </defs>
+
+  <!-- Ligne sinusoïdale principale -->
+  <path d="M 10 20 Q 60 8, 110 20 T 160 20 Q 210 8, 260 20 T 310 20"
+        fill="none" stroke="#5F6F4F" stroke-width="1.2" stroke-linecap="round" opacity=".55"/>
+
+  <!-- Feuilles symétriques -->
+  <g fill="#7B8D69" opacity=".7">
+    <path d="M 100 18 Q 110 10, 120 18 Q 110 24, 100 18 Z"/>
+    <path d="M 200 18 Q 210 10, 220 18 Q 210 24, 200 18 Z"/>
+  </g>
+
+  <!-- Rose centrale enrichie : 2 couronnes + cœur gradient + highlight -->
+  <g transform="translate(160 20)">
+    <!-- Ombre portée -->
+    <ellipse cx="0" cy="1" rx="14" ry="3" fill="#3D1610" opacity=".2"/>
+    <!-- Couronne extérieure 6 pétales -->
+    <g opacity=".88">
+      <ellipse cx="0" cy="-9" rx="6" ry="3.5" fill="url(#dvPetal)" transform="rotate(0)"/>
+      <ellipse cx="0" cy="-9" rx="6" ry="3.5" fill="url(#dvPetal)" transform="rotate(60)"/>
+      <ellipse cx="0" cy="-9" rx="6" ry="3.5" fill="url(#dvPetal)" transform="rotate(120)"/>
+      <ellipse cx="0" cy="-9" rx="6" ry="3.5" fill="url(#dvPetal)" transform="rotate(180)"/>
+      <ellipse cx="0" cy="-9" rx="6" ry="3.5" fill="url(#dvPetal)" transform="rotate(240)"/>
+      <ellipse cx="0" cy="-9" rx="6" ry="3.5" fill="url(#dvPetal)" transform="rotate(300)"/>
+    </g>
+    <!-- Couronne médiane 6 pétales décalés -->
+    <g opacity=".92">
+      <ellipse cx="0" cy="-5" rx="4" ry="2.5" fill="#C58576" transform="rotate(30)"/>
+      <ellipse cx="0" cy="-5" rx="4" ry="2.5" fill="#C58576" transform="rotate(90)"/>
+      <ellipse cx="0" cy="-5" rx="4" ry="2.5" fill="#C58576" transform="rotate(150)"/>
+      <ellipse cx="0" cy="-5" rx="4" ry="2.5" fill="#C58576" transform="rotate(210)"/>
+      <ellipse cx="0" cy="-5" rx="4" ry="2.5" fill="#C58576" transform="rotate(270)"/>
+      <ellipse cx="0" cy="-5" rx="4" ry="2.5" fill="#C58576" transform="rotate(330)"/>
+    </g>
+    <!-- Cœur -->
+    <circle r="4" fill="url(#dvRoseCore)"/>
+    <ellipse cx="-1" cy="-1.3" rx="1.2" ry=".7" fill="#FFF8F0" opacity=".6"/>
+  </g>
+
+  <!-- Bourgeons aux extrémités -->
+  <circle cx="10" cy="20" r="2.5" fill="#A86A5C" opacity=".6"/>
+  <circle cx="310" cy="20" r="2.5" fill="#A86A5C" opacity=".6"/>
+</svg>

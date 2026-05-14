@@ -4,12 +4,12 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Just Married · Admin</title>
-  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@400;600;700&family=Italianno&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@400;500;600;700&family=Marcellus&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="/justmarried/css/admin.css">
 </head>
 <body>
   <header class="nav">
-    <div class="nav-brand">Just Married <small>·</small></div>
+    <a class="nav-brand" href="/" target="_blank" rel="noopener" title="Ouvrir le kiosk dans un nouvel onglet">Just Married <small>·</small></a>
     <a href="/justmarried/index.html" class="active">Accueil</a>
     <a href="/justmarried/mp3.html">Musiques</a>
     <a href="/justmarried/videos.html">Vidéos</a>
@@ -62,9 +62,13 @@
         }
       } catch {}
       if (url) {
-        const cmd = 'chromium --kiosk --noerrdialogs --disable-infobars --autoplay-policy=no-user-gesture-required ' + url;
+        const cmd = 'chromium --kiosk --incognito --noerrdialogs --disable-infobars'
+                  + ' --autoplay-policy=no-user-gesture-required'
+                  + ' --use-fake-ui-for-media-stream'
+                  + ' --disk-cache-size=1 --media-cache-size=1'
+                  + ' ' + url;
         codeEl.textContent = cmd;
-        hintEl.textContent = 'URL tirée de Réglages → URL publique.';
+        hintEl.textContent = '--incognito : profil neuf à chaque lancement (pas de cache). --use-fake-ui-for-media-stream : webcam/micro auto-acceptés sans pop-up.';
         btn.addEventListener('click', async () => {
           try { await navigator.clipboard.writeText(cmd); btn.textContent = '✓ Copié'; setTimeout(() => btn.textContent = 'Copier', 1500); }
           catch { btn.textContent = '×'; }

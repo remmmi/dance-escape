@@ -6,6 +6,9 @@
   const btnStart = $('btn-start');
   const modalWarn = $('modal-warning');
   const modalVictory = $('modal-victory');
+  const modalCustom = $('modal-custom');
+  const customTitle = $('custom-title');
+  const customMessage = $('custom-message');
   const warnCount = $('warn-count');
   const secretCodeEl = $('secret-code');
   const trackTag = $('track-tag');
@@ -194,6 +197,14 @@
   let currentTrack = null;
   let musicTargetVolume = 1.0;
   let musicStartCtxTime = 0;   // AudioContext.currentTime at music start (MP3 BufferSource path)
+  let currentTrackDurationMs = 0; // length of the playing track in ms (0 if unknown)
+
+  // Hardcoded timeline constants (volontairement non-settables — sans
+  // intérêt à toucher pour un kiosk one-shot, et les chiffres ont été
+  // calibrés à l'oreille).
+  const BUZZER_DURATION_MS = 1500;  // longueur fixe du buzzer asynchrone
+  const DUCK_VOLUME = 0.10;         // niveau auquel la musique baisse pendant le buzzer
+  const FADE_DURATION_MS = 10000;   // fondu final avant reset
 
   function loadYouTubeAPI() {
     if (window.YT && window.YT.Player) return Promise.resolve();
@@ -230,17 +241,22 @@
         const ctx = ac();
         musicSrc = ctx.createBufferSource();
         musicSrc.buffer = buf;
-        musicSrc.loop = true;
+        musicSrc.loop = false;   // play start-to-finish, no loop
         musicGain = ctx.createGain();
         musicGain.gain.setValueAtTime(musicTargetVolume, ctx.currentTime);
         musicSrc.connect(musicGain).connect(ctx.destination);
         musicStartCtxTime = ctx.currentTime;
+        currentTrackDurationMs = (buf.duration || 0) * 1000;
         musicSrc.start(0);
       } else {
         musicEl = new Audio(track.url);
         musicEl.preload = 'auto';
-        musicEl.loop = true;
+        musicEl.loop = false;
         musicEl.volume = musicTargetVolume;
+        // Capture duration once metadata loads; T5=0 needs it.
+        musicEl.addEventListener('loadedmetadata', () => {
+          currentTrackDurationMs = (musicEl.duration || 0) * 1000;
+        }, { once: true });
         try { await musicEl.play(); } catch (e) { console.warn('mp3 play failed', e); }
       }
     } else if (track.type === 'youtube') {
@@ -256,6 +272,16 @@
           ytPlayer.setVolume(Math.round(musicTargetVolume * 100));
           ytPlayer.seekTo(start, true);
           ytPlayer.playVideo();
+          // Capture duration (subtract startSeconds). getDuration peut
+          // renvoyer 0 sur warm-start, on retente jusqu'a 5 fois.
+          const grabDur = (attempt = 0) => {
+            try {
+              const total = ytPlayer.getDuration();
+              if (total > 0) currentTrackDurationMs = Math.max(0, (total - start) * 1000);
+              else if (attempt < 5) setTimeout(() => grabDur(attempt + 1), 400);
+            } catch {}
+          };
+          grabDur();
         } catch (e) { console.warn('YT warm-start failed', e); }
         return;
       }
@@ -279,6 +305,16 @@
                   try { ev.target.seekTo(start, true); } catch {}
                 }
                 ev.target.playVideo();
+                // getDuration() peut renvoyer 0 juste apres onReady (video
+                // pas encore parsee). On retente jusqu'a 5 fois.
+                const grabDur = (attempt = 0) => {
+                  try {
+                    const total = ev.target.getDuration();
+                    if (total > 0) currentTrackDurationMs = Math.max(0, (total - start) * 1000);
+                    else if (attempt < 5) setTimeout(() => grabDur(attempt + 1), 400);
+                  } catch {}
+                };
+                grabDur();
                 resolve();
               }
             }
@@ -393,6 +429,12 @@
     try { if (musicGain) { musicGain.disconnect(); } } catch {}
     musicSrc = null; musicGain = null;
     try { if (musicEl) { musicEl.pause(); musicEl.src = ''; musicEl = null; } } catch {}
+    // CRITIQUE : couper le son YT avant destroy() qui est async. Sans
+    // ces 3 lignes, l'audio peut continuer pendant 100-500ms apres la
+    // commande destroy, le temps que l'iframe soit effectivement retire.
+    try { if (ytPlayer && ytPlayer.setVolume) ytPlayer.setVolume(0); } catch {}
+    try { if (ytPlayer && ytPlayer.mute) ytPlayer.mute(); } catch {}
+    try { if (ytPlayer && ytPlayer.stopVideo) ytPlayer.stopVideo(); } catch {}
     try { if (ytPlayer && ytPlayer.destroy) { ytPlayer.destroy(); ytPlayer = null; } } catch {}
     // Re-create yt-host since destroy replaces it
     if (!document.getElementById('yt-host')) {
@@ -400,6 +442,34 @@
       d.id = 'yt-host'; d.className = 'yt-host'; d.setAttribute('aria-hidden', 'true');
       document.body.appendChild(d);
     }
+  }
+
+  // Full audio reset between sessions. stopMusic() destroys the ACTIVE
+  // player, but the pre-warmed ytPreparedPlayer + the volume tracking
+  // state must also be reset, otherwise:
+  //   - a fade-to-0 from the previous session leaves musicTargetVolume=0
+  //   - the next startMusic() reads 0 and the user hears nothing
+  //   - the warm-start path reuses a player that was put in a weird
+  //     state by the previous session's destroy()
+  // Calling resetAudioState() at end-of-session AND at start-of-session
+  // (defensive) gives a clean slate every time.
+  function resetAudioState() {
+    stopMusic();
+    try { if (ytPreparedPlayer && ytPreparedPlayer.destroy) ytPreparedPlayer.destroy(); } catch {}
+    ytPreparedPlayer = null;
+    preparedTrack = null;
+    musicTargetVolume = 1.0;
+    musicStartCtxTime = 0;
+    currentTrackDurationMs = 0;
+    // CRITIQUE : force-remove any leftover yt-host iframe. YT.Player.destroy()
+    // est asynchrone et incomplet — l'iframe DOM peut survivre. Si on laisse
+    // l'iframe pre-warm (avec mute=1) en place, le cold path suivant
+    // adopte cet iframe muet au lieu d'en creer un neuf → "session 2 muette".
+    const existing = document.getElementById('yt-host');
+    if (existing) existing.remove();
+    const d = document.createElement('div');
+    d.id = 'yt-host'; d.className = 'yt-host'; d.setAttribute('aria-hidden', 'true');
+    document.body.appendChild(d);
   }
 
   // Compute how many ms remain on the currently-playing track. For MP3 in
@@ -455,20 +525,21 @@
   // but no actual recording is in progress.
   async function warmupCamera() {
     if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) return;
-    if (!navigator.permissions || !navigator.permissions.query) return;
+    if (mediaStream) return; // already warm
+    // On ne consulte PAS l'API Permissions : avec
+    // --use-fake-ui-for-media-stream (mode kiosk Chromium), elle renvoie
+    // 'prompt' au boot mais getUserMedia reussit quand meme sans
+    // interaction. Sans le flag, getUserMedia echoue silencieusement
+    // (pas de prompt sans user gesture) → catch ci-dessous → aucun mal.
     try {
-      const [cam, mic] = await Promise.all([
-        navigator.permissions.query({ name: 'camera' }),
-        navigator.permissions.query({ name: 'microphone' })
-      ]);
-      if (cam.state !== 'granted' || mic.state !== 'granted') return;
-      if (mediaStream) return; // already warm
       console.time('[warmup camera]');
       mediaStream = await navigator.mediaDevices.getUserMedia(CAM_CONSTRAINTS);
       camEl.srcObject = mediaStream;
       console.timeEnd('[warmup camera]');
     } catch (e) {
-      console.warn('[warmup camera] failed:', e.message);
+      // Echec attendu sans --use-fake-ui et sans permission persistee.
+      // Le clic Start declenchera getUserMedia avec user gesture → prompt
+      // ou succes selon les flags. Aucune action a faire ici.
       mediaStream = null;
     }
   }
@@ -616,12 +687,66 @@
     }
   }
 
+  // ---- modales annexes M-1..M-n ----
+  // Schedule + show/hide indépendants de la timeline T1-T5. Pas de
+  // pause audio, pas d'await — purement fire-and-forget par setTimeout.
+  // Si la modale suivante doit pop pendant que la précédente est encore
+  // affichée, on remplace : hide d'abord, puis show.
+  let customModalTimers = [];
+  let activeCustomId = null;
+
+  function showCustomModalEl(m) {
+    customTitle.textContent = m.title || '';
+    customMessage.textContent = m.message || '';
+    activeCustomId = m.id;
+    showModal(modalCustom);
+  }
+
+  function hideCustomModalIfActive(id) {
+    if (activeCustomId === id) {
+      hideModal(modalCustom);
+      activeCustomId = null;
+    }
+  }
+
+  function scheduleCustomModals(modals, sessionStartPerf) {
+    cancelCustomModals(); // safe re-call
+    if (!Array.isArray(modals) || modals.length === 0) return;
+    for (const m of modals) {
+      if (!m || typeof m.t !== 'number' || !(m.title || m.message)) continue;
+      const id = m.id || ('m' + Math.random().toString(36).slice(2, 6));
+      const showAt = Math.max(0, m.t);
+      const dur = Math.max(0, Number(m.duration) || 0);
+      // Show : si une autre modale custom est active, la fermer d'abord
+      customModalTimers.push(setTimeout(() => {
+        if (activeCustomId) hideModal(modalCustom);
+        showCustomModalEl({ id, title: m.title, message: m.message });
+      }, Math.max(0, showAt - (performance.now() - sessionStartPerf))));
+      // Hide : ne ferme que si CETTE modale est encore active
+      customModalTimers.push(setTimeout(() => {
+        hideCustomModalIfActive(id);
+      }, Math.max(0, (showAt + dur) - (performance.now() - sessionStartPerf))));
+    }
+  }
+
+  function cancelCustomModals() {
+    customModalTimers.forEach(clearTimeout);
+    customModalTimers = [];
+    if (activeCustomId) {
+      hideModal(modalCustom);
+      activeCustomId = null;
+    }
+  }
+
   // ---- main flow ----
   async function runSession() {
     if (busy) return;
     busy = true;
-    // Defensive: stop any leftover music from a previous session.
-    stopMusic();
+    // PAS de resetAudioState ici : ca detruirait le ytPreparedPlayer
+    // warm-start cree par prepareNextTrack, forcant le cold path
+    // (~500-1000ms d'attente avant que la musique demarre). Le reset
+    // de fin de session (T5+10) + le iframe.remove() de stopMusic
+    // suffisent a garder un etat propre entre sessions.
     try {
       cfg = await fetchConfig();
       // Refresh SFX URLs (admin may have replaced them since boot) and
@@ -633,19 +758,30 @@
       busy = false; return;
     }
 
-    const {
-      phase1DurationMs, buzzerDurationMs, warningModalMs,
-      victoryStartMs, totalDurationMs, victoryModalMs = 30000
-    } = cfg.timings;
+    // ----------------------------------------------------------------
+    // Event-driven timeline (tous les temps en ms depuis T0=0).
+    //   T0           : start - musique 100% + start enregistrement
+    //   T1           : event 1 - modal "Faites mieux" + buzzer 1.5s + duck musique 1.5s
+    //   T1 + warning : disparition modal warning
+    //   T2           : event 2 - victoire (son + confettis + modal code)
+    //   T3           : event 3 - fin enregistrement
+    //   T4           : event 4 - disparition modal code
+    //   T5           : event 5 - debut fadeout 10s. 0 = auto (song_duration - 10s).
+    //   T5 + 10s     : reset complet (audio + UI) - kiosk prêt pour la suite
+    // ----------------------------------------------------------------
+    const t1 = +cfg.timings.t1Ms || 0;
+    const warning = +cfg.timings.warningDurationMs || 0;
+    const t2 = +cfg.timings.t2Ms || 0;
+    const t3 = +cfg.timings.t3Ms || 0;
+    const t4 = +cfg.timings.t4Ms || 0;
+    const t5Setting = +cfg.timings.t5Ms || 0;
     secretCodeEl.textContent = cfg.secretCode || '—';
 
-    // 1) Mic/Cam permission
+    // Cam/Mic permission - prerequis avant T0
     try {
       console.time('[click→getUserMedia]');
       await startRecording();
       console.timeEnd('[click→getUserMedia]');
-      // After a successful capture we know permissions are granted —
-      // hide the hint immediately (Permissions API may lag).
       if (permHint) permHint.classList.add('hidden');
     } catch (e) {
       console.error('cam/mic error', e);
@@ -653,11 +789,9 @@
       busy = false; return;
     }
 
-    // 2) Switch screens, use the pre-prepared track, play music
+    // T0 = maintenant. Musique + enregistrement demarrent en parallele.
     startDebugChrono();
     showScreen('dance');
-    // Use the track picked + pre-warmed at boot (or after the previous
-    // session). Fall back to a fresh pick if preparation hasn't run yet.
     const track = preparedTrack || pickTrack(cfg.playlist);
     if (!track) {
       trackTag.textContent = "Aucune musique configurée";
@@ -667,97 +801,94 @@
       console.time('[startMusic]');
       startMusic(track).finally(() => console.timeEnd('[startMusic]')).catch(() => {});
     }
+    const stopBar = startTimer(t3);
+    const t0Perf = performance.now();
+    const at = (absMs) => sleep(Math.max(0, absMs - (performance.now() - t0Perf)));
 
-    const stopBar = startTimer(totalDurationMs);
+    // Modales annexes (M-1..M-n) : declenchement independant par setTimeout.
+    scheduleCustomModals(cfg.customModals, t0Perf);
 
-    // Phase 1: dance
-    await sleep(phase1DurationMs);
-
-    // Phase 2: lower music, buzzer
-    fadeMusic(0.15, 300);
-    playBuzzer(buzzerDurationMs);
-    await sleep(buzzerDurationMs);
-
-    // Phase 3: warning modal countdown
+    // ── Event 1 @ T1 : duck + buzzer async + modal warning ──
+    await at(t1);
+    fadeMusic(DUCK_VOLUME, 300);
+    playBuzzer(BUZZER_DURATION_MS); // fire-and-forget, audio scheduled sur AudioContext clock
     showModal(modalWarn);
-    fadeMusic(0.85, 600);
     const warnStart = performance.now();
-    const initial = Math.ceil(warningModalMs / 1000);
-    warnCount.textContent = initial;
+    warnCount.textContent = Math.ceil(warning / 1000);
     const warnInterval = setInterval(() => {
-      const remain = Math.max(0, Math.ceil((warningModalMs - (performance.now() - warnStart)) / 1000));
+      const remain = Math.max(0, Math.ceil((warning - (performance.now() - warnStart)) / 1000));
       warnCount.textContent = remain;
     }, 200);
-    await sleep(warningModalMs);
+    // Au bout de 1.5s la musique remonte (independamment de la fin du modal).
+    setTimeout(() => fadeMusic(1.0, 500), BUZZER_DURATION_MS);
+    // Le modal disparait apres sa duree de countdown.
+    await sleep(warning);
     clearInterval(warnInterval);
     hideModal(modalWarn);
-    fadeMusic(1.0, 400);
 
-    // Phase 4: dance again until victoryStartMs
-    const elapsed = phase1DurationMs + buzzerDurationMs + warningModalMs;
-    const waitToVictory = Math.max(0, victoryStartMs - elapsed);
-    await sleep(waitToVictory);
-
-    // Phase 5: victory — duck briefly so the victory arpeggio is clear,
-    // then bring the music back up and let it carry the celebration
-    // through the full modal display time.
-    const victoryShownAt = performance.now();
-    fadeMusic(0.1, 250);
+    // ── Event 2 @ T2 : victoire ──
+    await at(t2);
+    fadeMusic(0.1, 250);   // duck pour que l'arpege victory soit clair
     playVictory();
-    // Bring music back to full ~1.3 s into the arpeggio so it lifts the
-    // sustained chord rather than fighting the first notes.
     setTimeout(() => fadeMusic(1.0, 1500), 1300);
-    if (window.DanceConfetti) DanceConfetti.launch({ duration: Math.min(8000, totalDurationMs - victoryStartMs + 2000) });
+    // Confettis : duree etendue (15s par defaut, capee a la moitie de
+    // la phase T2 → T4 pour ne jamais deborder sur le reset). Visibles
+    // par-dessus le modal victoire grace au z-index 150 (vs modal=50).
+    if (window.DanceConfetti) {
+      const confettiMs = Math.max(12000, Math.min(15000, Math.floor((t4 - t2) / 2)));
+      DanceConfetti.launch({ duration: confettiMs });
+    }
     showModal(modalVictory);
 
-    // Phase 6: keep recording until totalDurationMs
-    const remainAfterVictory = Math.max(0, totalDurationMs - victoryStartMs);
-    await sleep(remainAfterVictory);
-
+    // ── Event 3 @ T3 : fin enregistrement ──
+    await at(t3);
     stopBar();
-    // Stop recording — but the MUSIC keeps playing under the victory
-    // modal until the modal time elapses. The full reset happens at the
-    // very end.
     const blob = await stopRecording();
-    if (blob) uploadVideo(blob).catch(() => {});
-
-    // Phase 7: hold the victory modal (and the music) for victoryModalMs
-    const modalElapsed = performance.now() - victoryShownAt;
-    await sleep(Math.max(0, victoryModalMs - modalElapsed));
-
-    // Phase 8: modal closed but the session stays "busy" until the music
-    // ends. The kiosk remains on the dance screen with the camera preview
-    // while the track plays out, then fades over its last 10s.
-    // A hard cap (cfg.timings.postModalMaxMs) can shorten this window;
-    // 0 (default) means "play until end of song, no cap".
-    hideModal(modalVictory);
-    timerFill.style.width = '0%';
-
-    const FADE_MS = 10000;
-    const remaining = remainingMusicMs();
-    const hardCapMs = Math.max(0, Number(cfg.timings.postModalMaxMs) || 0);
-    const lingerMs = remaining <= 0
-      ? 0
-      : (hardCapMs > 0 ? Math.min(remaining, hardCapMs) : remaining);
-
-    if (lingerMs > FADE_MS) {
-      await sleep(lingerMs - FADE_MS);
-      fadeMusic(0, FADE_MS);
-      await sleep(FADE_MS);
-    } else if (lingerMs > 0) {
-      // Window shorter than the fade: shrink the fade to fit.
-      const fade = Math.max(500, lingerMs - 200);
-      fadeMusic(0, fade);
-      await sleep(lingerMs);
+    // On lance l'upload en parallele mais on garde la promesse pour
+    // l'attendre avant le reset T5+10. Sans cela, si l'utilisateur recharge
+    // la page ou enchaine vite sur une autre session, le fetch est avorte
+    // mid-stream et le fichier video est tronque cote serveur.
+    let uploadPromise = null;
+    if (blob) {
+      uploadPromise = uploadVideo(blob).catch(err => {
+        console.warn('[upload] failed:', err && err.message);
+      });
     }
 
-    // Final reset: cut the music, back to idle, ready for the next guest.
-    stopMusic();
+    // ── Event 4 @ T4 : disparition modal code ──
+    await at(t4);
+    hideModal(modalVictory);
+    timerFill.style.width = '0%';
+    // Entre T4 et T5 : ecran dance avec cam preview, musique a 100%, pas de modal.
+
+    // ── Event 5 @ T5 : debut fadeout ──
+    // T5=0 → calcule pour que le fadeout finisse pile en fin de morceau.
+    // Clamp >= t4 + 1s pour eviter un fadeout qui demarre avant T4.
+    const t5 = t5Setting > 0
+      ? t5Setting
+      : Math.max(t4 + 1000, currentTrackDurationMs > 0 ? currentTrackDurationMs - FADE_DURATION_MS : t4);
+    await at(t5);
+    fadeMusic(0, FADE_DURATION_MS);
+
+    // ── T5 + 10s : reset complet (audio + interface) ──
+    await sleep(FADE_DURATION_MS);
+    // Best-effort wait for the upload to finish before resetting.
+    // L'upload a deja eu T3 → T5+10 (≥30s) pour pousser le blob ; on
+    // accorde 15s de grace puis on force le reset coute que coute pour
+    // ne JAMAIS hanger le kiosk a cause d'un upload lent ou casse.
+    if (uploadPromise) {
+      await Promise.race([
+        uploadPromise,
+        new Promise(r => setTimeout(r, 15000))
+      ]).catch(() => {});
+    }
+    cancelCustomModals();
+    resetAudioState();
     showScreen('idle');
     resetDebugChrono();
     busy = false;
 
-    // Prepare the next session now that yt-host is free.
+    // Prepare la prochaine session (le yt-host est frais grace a resetAudioState).
     prepareNextTrack(cfg).catch(e => console.warn('[prepareNext]', e.message));
   }
 
@@ -765,6 +896,19 @@
     // Unlock audio context on user gesture
     try { ac().resume(); } catch {}
     runSession();
+  });
+
+  // Touche Entree globale -> equivalent du bouton "Démarrer". Pratique
+  // pour les setups kiosk avec clavier sans souris (claviers sans-fil,
+  // pointeur presentation). preventDefault() supprime aussi le click
+  // natif que Chrome enverrait sur le bouton focuse, evitant tout
+  // risque de double-fire (le guard "busy" l'absorberait, mais autant
+  // etre propre).
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter' && !e.repeat) {
+      e.preventDefault();
+      btnStart.click();
+    }
   });
 
   // Hide the "activate mic/cam" hint once both permissions are granted.

@@ -11,3 +11,9 @@ node_modules/
 uploads/videos/*
 !uploads/videos/.gitkeep
 !uploads/videos/1778542291010-9a86aeb268f5.webm
+
+# Corbeille des vidéos soft-supprimées (déplacées depuis videos.html).
+# Le dossier est recréé automatiquement au boot par server.js,
+# inutile de le versionner. Règle explicite pour la lisibilité même
+# si techniquement déjà couverte par "uploads/videos/*" ci-dessus.
+uploads/videos/deleted/

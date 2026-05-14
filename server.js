@@ -13,11 +13,13 @@ const DATA_DIR = path.join(ROOT, 'data');
 const UPLOADS_DIR = path.join(ROOT, 'uploads');
 const MP3_DIR = path.join(UPLOADS_DIR, 'mp3');
 const VIDEOS_DIR = path.join(UPLOADS_DIR, 'videos');
+const DELETED_VIDEOS_DIR = path.join(VIDEOS_DIR, 'deleted');
 const SFX_DIR = path.join(UPLOADS_DIR, 'sfx');
 const CONFIG_PATH = path.join(DATA_DIR, 'config.json');
 const VIDEOS_INDEX_PATH = path.join(DATA_DIR, 'videos.json');
+const DELETED_VIDEOS_INDEX_PATH = path.join(DATA_DIR, 'videos-deleted.json');
 
-for (const d of [DATA_DIR, UPLOADS_DIR, MP3_DIR, VIDEOS_DIR, SFX_DIR]) {
+for (const d of [DATA_DIR, UPLOADS_DIR, MP3_DIR, VIDEOS_DIR, SFX_DIR, DELETED_VIDEOS_DIR]) {
   fs.mkdirSync(d, { recursive: true });
 }
 
@@ -50,15 +52,15 @@ function deleteSfx(kind) {
 // ici si on veut shipper un nouveau preset.
 const DEFAULT_CONFIG = {
   timings: {
-    phase1DurationMs: 10000,
-    buzzerDurationMs: 0,
-    warningModalMs: 8000,
-    victoryStartMs: 40000,
-    totalDurationMs: 60000,
-    victoryModalMs: 30000,
-    // Plafond dur de la phase post-modal (musique qui termine + fade 10s).
-    // 0 = pas de plafond, on laisse le morceau aller jusqu'au bout.
-    postModalMaxMs: 0
+    // Modele event-driven absolu (cf. kiosk.js runSession). Tous les
+    // temps sont en ms depuis T0 (debut session). Le buzzer (1.5s) et
+    // le fadeout (10s) sont hardcodes cote front.
+    t1Ms: 10000,              // event 1: modal "Faites mieux" + buzzer
+    warningDurationMs: 8000,  // duree du compte a rebours du modal warning
+    t2Ms: 40000,              // event 2: victoire (son + confettis + modal code)
+    t3Ms: 60000,              // event 3: fin enregistrement video
+    t4Ms: 90000,              // event 4: disparition modal code
+    t5Ms: 0                   // event 5: debut fadeout. 0 = auto (song_duration - 10s)
   },
   emails: [],
   smtp: {
@@ -76,6 +78,11 @@ const DEFAULT_CONFIG = {
     { videoId: 'yURRmWtbTbo', title: "MJ Don't Stop 'Til You Get Enough", startSeconds: 14 },
     { videoId: 'ZNaXb3uuekk', title: "Sex Machine",                       startSeconds: 11 }
   ],
+  // Modales annexes (independantes de la timeline T1-T5). Chaque entree
+  // declenche un overlay au timestamp `t` (ms depuis T0) avec titre +
+  // message pendant `duration`. N'affecte pas la musique ni les events.
+  // Si deux modales se chevauchent : la suivante remplace la precedente.
+  customModals: [],
   // Toutes les lignes de texte affichées sur le kiosk, éditables via
   // l'admin. Le DOM correspondant est repéré par data-text="<clé>".
   // Seule `warningBody` est rendue en innerHTML (pour autoriser <em>).
@@ -123,8 +130,32 @@ function mergeDefaults(target, defaults) {
   return out;
 }
 
+// Migre une config v1.x (schema phase1/victoryStart/total/victoryModal) vers
+// le schema event-driven (t1/t2/t3/t4/t5). Garde les vieilles cles si
+// presentes pour ne casser aucun consommateur, mais ajoute les nouvelles.
+function migrateTimings(t) {
+  if (!t || typeof t !== 'object') return t;
+  // Si t1Ms est deja la, c'est deja le nouveau schema -> rien a faire.
+  if (typeof t.t1Ms === 'number') return t;
+  const out = {};
+  if (typeof t.phase1DurationMs === 'number') out.t1Ms = t.phase1DurationMs;
+  if (typeof t.warningModalMs === 'number')   out.warningDurationMs = t.warningModalMs;
+  if (typeof t.victoryStartMs === 'number')   out.t2Ms = t.victoryStartMs;
+  if (typeof t.totalDurationMs === 'number')  out.t3Ms = t.totalDurationMs;
+  if (typeof t.totalDurationMs === 'number' && typeof t.victoryModalMs === 'number') {
+    out.t4Ms = t.totalDurationMs + t.victoryModalMs;
+  }
+  if (typeof t.postModalMaxMs === 'number') {
+    out.t5Ms = t.postModalMaxMs > 0 && typeof out.t4Ms === 'number' ? out.t4Ms + t.postModalMaxMs : 0;
+  }
+  // Les anciennes cles (phase1DurationMs, victoryStartMs, etc.) sont
+  // intentionnellement abandonnees - elles ne sont plus lues nulle part.
+  return out;
+}
+
 function loadConfig() {
   const raw = readJson(CONFIG_PATH, null);
+  if (raw && raw.timings) raw.timings = migrateTimings(raw.timings);
   const cfg = mergeDefaults(raw || {}, DEFAULT_CONFIG);
   if (!raw) writeJsonAtomic(CONFIG_PATH, cfg);
   return cfg;
@@ -140,6 +171,14 @@ function loadVideos() {
 
 function saveVideos(list) {
   writeJsonAtomic(VIDEOS_INDEX_PATH, list);
+}
+
+function loadDeletedVideos() {
+  return readJson(DELETED_VIDEOS_INDEX_PATH, []);
+}
+
+function saveDeletedVideos(list) {
+  writeJsonAtomic(DELETED_VIDEOS_INDEX_PATH, list);
 }
 
 const safeNameRe = /^[A-Za-z0-9._-]+$/;
@@ -179,7 +218,8 @@ app.get('/api/session/config', (_req, res) => {
       buzzerUrl: sfxUrl('buzzer'),
       victoryUrl: sfxUrl('victory')
     },
-    texts: cfg.texts || DEFAULT_CONFIG.texts
+    texts: cfg.texts || DEFAULT_CONFIG.texts,
+    customModals: Array.isArray(cfg.customModals) ? cfg.customModals : []
   });
 });
 
@@ -194,6 +234,25 @@ const videoUpload = multer({
     }
   }),
   limits: { fileSize: 200 * 1024 * 1024 }
+});
+
+// Endpoint PUBLIC (pas de Basic Auth) pour le viewer /v.html : retourne
+// metadata d'une video par id. Volontairement minimal : pas de leak
+// d'autres infos systeme. Comme l'id est un random crypto.randomBytes(6)
+// = 48 bits, non-guessable, c'est le meme modele de securite que le
+// filename direct dans /uploads/videos/.
+app.get('/api/v/:id', (req, res) => {
+  const id = req.params.id;
+  const v = loadVideos().find(x => x.id === id);
+  if (!v) return res.status(404).json({ error: 'not found' });
+  res.json({
+    id: v.id,
+    filename: v.filename,
+    music: v.music || '',
+    createdAt: v.createdAt,
+    size: v.size,
+    url: '/uploads/videos/' + encodeURIComponent(v.filename)
+  });
 });
 
 app.post('/api/session/upload', videoUpload.single('video'), async (req, res) => {
@@ -225,7 +284,10 @@ async function sendVideoEmail(meta) {
     return;
   }
   const base = publicBaseUrl || '';
-  const link = `${base}/uploads/videos/${meta.filename}`;
+  // Lien vers la page web publique de visionnage (player de qualité +
+  // duration fix pour les WebM MediaRecorder). Le destinataire n'a pas
+  // les credentials admin, c'est une route publique non listée.
+  const link = `${base}/v.html?id=${encodeURIComponent(meta.id)}`;
   const adminLink = `${base}/justmarried/videos.html`;
   const transporter = nodemailer.createTransport({
     host: smtp.host,
@@ -296,6 +358,21 @@ app.post('/api/admin/config', (req, res) => {
         };
       })
       .filter(y => y.videoId);
+  }
+  if (Array.isArray(incoming.customModals)) {
+    cur.customModals = incoming.customModals
+      .map((m, i) => {
+        const t = Number(m.t);
+        const d = Number(m.duration);
+        return {
+          id: String(m.id || ('m' + (i + 1))).trim(),
+          t: Number.isFinite(t) && t >= 0 ? Math.floor(t) : 0,
+          duration: Number.isFinite(d) && d >= 0 ? Math.floor(d) : 3000,
+          title: String(m.title || '').trim(),
+          message: String(m.message || '').trim()
+        };
+      })
+      .filter(m => m.title || m.message);
   }
   saveConfig(cur);
   res.json({ ok: true, config: cur });
@@ -414,6 +491,10 @@ app.delete('/api/admin/sfx/:kind', (req, res) => {
 // Videos list / delete
 app.get('/api/admin/videos', (_req, res) => res.json(loadVideos()));
 
+// SOFT DELETE : ne supprime pas le fichier, le deplace dans
+// uploads/videos/deleted/ + ajoute a videos-deleted.json. La page
+// videoscontrol.html (cachee, sans lien dans la nav) liste/restaure
+// ces videos. Le hard-delete se fait depuis videoscontrol.
 app.delete('/api/admin/videos/:id', (req, res) => {
   const id = req.params.id;
   const list = loadVideos();
@@ -422,11 +503,58 @@ app.delete('/api/admin/videos/:id', (req, res) => {
   const [removed] = list.splice(idx, 1);
   saveVideos(list);
   try {
-    const p = path.join(VIDEOS_DIR, removed.filename);
+    const src = path.join(VIDEOS_DIR, removed.filename);
+    const dst = path.join(DELETED_VIDEOS_DIR, removed.filename);
+    if (fs.existsSync(src)) fs.renameSync(src, dst);
+  } catch (e) {
+    console.warn('[videos] soft-delete move failed:', e.message);
+  }
+  const trashed = loadDeletedVideos();
+  trashed.unshift({ ...removed, deletedAt: new Date().toISOString() });
+  saveDeletedVideos(trashed);
+  res.json({ ok: true });
+});
+
+// Liste des videos soft-supprimees (pour videoscontrol.html).
+app.get('/api/admin/videos-deleted', (_req, res) => res.json(loadDeletedVideos()));
+
+// HARD DELETE : retire definitivement le fichier ET l'entree.
+app.delete('/api/admin/videos-deleted/:id', (req, res) => {
+  const id = req.params.id;
+  const list = loadDeletedVideos();
+  const idx = list.findIndex(v => v.id === id);
+  if (idx < 0) return res.status(404).json({ error: 'introuvable' });
+  const [removed] = list.splice(idx, 1);
+  saveDeletedVideos(list);
+  try {
+    const p = path.join(DELETED_VIDEOS_DIR, removed.filename);
     if (fs.existsSync(p)) fs.unlinkSync(p);
   } catch (e) {
-    console.warn('[videos] delete file failed:', e.message);
+    console.warn('[videos] hard-delete file failed:', e.message);
   }
+  res.json({ ok: true });
+});
+
+// RESTORE : remet la video dans la liste active.
+app.post('/api/admin/videos-deleted/:id/restore', (req, res) => {
+  const id = req.params.id;
+  const trashed = loadDeletedVideos();
+  const idx = trashed.findIndex(v => v.id === id);
+  if (idx < 0) return res.status(404).json({ error: 'introuvable' });
+  const [restored] = trashed.splice(idx, 1);
+  saveDeletedVideos(trashed);
+  try {
+    const src = path.join(DELETED_VIDEOS_DIR, restored.filename);
+    const dst = path.join(VIDEOS_DIR, restored.filename);
+    if (fs.existsSync(src)) fs.renameSync(src, dst);
+  } catch (e) {
+    console.warn('[videos] restore move failed:', e.message);
+  }
+  const active = loadVideos();
+  // Retire deletedAt avant remise en liste active
+  const { deletedAt: _drop, ...clean } = restored;
+  active.unshift(clean);
+  saveVideos(active);
   res.json({ ok: true });
 });
 

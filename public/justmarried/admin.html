@@ -4,12 +4,12 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Réglages · Just Married</title>
-  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@400;600;700&family=Italianno&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@400;500;600;700&family=Marcellus&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="/justmarried/css/admin.css">
 </head>
 <body>
   <header class="nav">
-    <div class="nav-brand">Just Married <small>·</small></div>
+    <a class="nav-brand" href="/" target="_blank" rel="noopener" title="Ouvrir le kiosk dans un nouvel onglet">Just Married <small>·</small></a>
     <a href="/justmarried/index.html">Accueil</a>
     <a href="/justmarried/mp3.html">Musiques</a>
     <a href="/justmarried/videos.html">Vidéos</a>
@@ -22,44 +22,9 @@
     <p class="lead">Tous les paramètres de l'épreuve, modifiables à la volée.</p>
 
     <div class="card">
-      <h2>Délais (en secondes)</h2>
-      <div class="row">
-        <div>
-          <label>Phase 1 — danse initiale</label>
-          <input type="number" id="t-phase1" min="0" step="0.1">
-          <div class="help">Durée avant le buzzer (défaut 10 s)</div>
-        </div>
-        <div>
-          <label>Buzzer (durée)</label>
-          <input type="number" id="t-buzz" min="0.5" step="0.1">
-          <div class="help">2 à 3 s conseillé</div>
-        </div>
-        <div>
-          <label>Modal d'avertissement</label>
-          <input type="number" id="t-warn" min="0" step="0.1">
-          <div class="help">Compte à rebours (défaut 8 s)</div>
-        </div>
-        <div>
-          <label>Début victoire (depuis t=0)</label>
-          <input type="number" id="t-victory" min="0" step="0.1">
-          <div class="help">Défaut 30 s</div>
-        </div>
-        <div>
-          <label>Durée totale enregistrement (depuis t=0)</label>
-          <input type="number" id="t-total" min="0" step="0.1">
-          <div class="help">Défaut 40 s</div>
-        </div>
-        <div>
-          <label>Affichage modal code (depuis victoire)</label>
-          <input type="number" id="t-victorymodal" min="0" step="0.1">
-          <div class="help">Défaut 30 s — puis fermeture du modal</div>
-        </div>
-        <div>
-          <label>Plafond dur après modal (musique restante)</label>
-          <input type="number" id="t-postmodalmax" min="0" step="0.1">
-          <div class="help">Après fermeture du modal, le morceau finit avec un fondu de 10 s. <strong>0 = jusqu'à la fin du morceau (défaut)</strong>. Ex&nbsp;: 60 pour limiter à 1 min max.</div>
-        </div>
-      </div>
+      <h2>Code secret</h2>
+      <label>Code affiché à la fin</label>
+      <input type="text" id="secret" placeholder="ex. MARIES-2026">
     </div>
 
     <div class="card">
@@ -76,9 +41,56 @@
     </div>
 
     <div class="card">
-      <h2>Code secret</h2>
-      <label>Code affiché à la fin</label>
-      <input type="text" id="secret" placeholder="ex. MARIES-2026">
+      <h2>Délais</h2>
+      <p class="help">Chronologie de la session, vue comme une <strong>suite d'événements</strong> qui se déclenchent à des moments précis depuis le démarrage (T0). Toutes les valeurs en secondes depuis T0.</p>
+
+      <div class="row">
+        <div>
+          <label>① <strong>T1</strong> — modal « Faites mieux ! » + buzzer</label>
+          <input type="number" id="t-t1" min="0" step="0.1">
+          <div class="help">Le buzzer (1.5 s, fixe) joue, la musique baisse à 10% le temps du buzzer puis remonte, le modal apparaît. <em>Défaut 10 s.</em></div>
+        </div>
+        <div>
+          <label>Durée du compte à rebours du modal</label>
+          <input type="number" id="t-warning-dur" min="0" step="0.1">
+          <div class="help">Le modal disparaît après ce décompte. <em>Défaut 8 s.</em></div>
+        </div>
+      </div>
+
+      <div class="row" style="margin-top:.6rem;">
+        <div>
+          <label>② <strong>T2</strong> — victoire</label>
+          <input type="number" id="t-t2" min="0" step="0.1">
+          <div class="help">Confettis + son de victoire + apparition du modal code. <em>Défaut 40 s.</em></div>
+        </div>
+        <div>
+          <label>③ <strong>T3</strong> — fin de l'enregistrement vidéo</label>
+          <input type="number" id="t-t3" min="0" step="0.1">
+          <div class="help">La captation caméra s'arrête. Le modal code reste visible. <em>Défaut 60 s.</em></div>
+        </div>
+        <div>
+          <label>④ <strong>T4</strong> — disparition du modal code</label>
+          <input type="number" id="t-t4" min="0" step="0.1">
+          <div class="help">Le modal disparaît, la cam preview reste visible avec la musique en fond pour l'ambiance. <em>Défaut 90 s.</em></div>
+        </div>
+      </div>
+
+      <div class="row" style="margin-top:.6rem;">
+        <div>
+          <label>⑤ <strong>T5</strong> — début du fondu final (10 s)</label>
+          <input type="number" id="t-t5" min="0" step="0.1">
+          <div class="help">Le morceau fond sur 10 s puis le kiosk se reset (interface + audio) à T5+10. <strong>0 = automatique</strong> (fondu calé pour finir pile à la fin du morceau).</div>
+        </div>
+      </div>
+
+      <p id="session-total" class="help" style="margin-top:1.25rem;padding:.6rem .9rem;background:rgba(0,0,0,.04);border-radius:6px;font-weight:500;">⏱ …</p>
+    </div>
+
+    <div class="card">
+      <h2>Modales annexes</h2>
+      <p class="help">Messages affichés sur le kiosk pendant la session, indépendants des événements T1-T5 (n'affectent ni la musique ni l'enregistrement). Fond sage, durée libre. Si deux modales se chevauchent, la suivante remplace la précédente.</p>
+      <div id="custom-modals-list" style="margin-bottom:1rem;"></div>
+      <button type="button" class="btn secondary" id="custom-modal-add">+ Ajouter une modale</button>
     </div>
 
     <div class="card">
@@ -150,6 +162,28 @@
       return String(s).replace(/[&<>"']/g, c => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[c]));
     }
 
+    // Live-compute le resume sous la carte Delais. Le kiosk est bloque
+    // (busy=true) jusqu'a T5+10s (fin du fondu + reset). Si T5=0 le calcul
+    // depend de la duree du morceau, donc on affiche "auto".
+    function updateSessionTotal() {
+      const t4 = parseFloat(document.getElementById('t-t4').value) || 0;
+      const t5 = parseFloat(document.getElementById('t-t5').value) || 0;
+      const fmt = n => (n % 1 === 0 ? n.toFixed(0) : n.toFixed(1));
+      let txt;
+      if (t5 > 0) {
+        txt = `⏱ Reset complet du kiosk à T5+10s = ${fmt(t5 + 10)} s. Modal code disparaît à T4 = ${fmt(t4)} s.`;
+      } else {
+        txt = `⏱ Reset complet calé sur la fin du morceau (T5 auto = durée du morceau - 10 s). Modal code disparaît à T4 = ${fmt(t4)} s.`;
+      }
+      const el = document.getElementById('session-total');
+      if (el) el.textContent = txt;
+    }
+    // Re-compute live on every keystroke in any of the inputs that matter.
+    ['t-t4', 't-t5'].forEach(id => {
+      const el = document.getElementById(id);
+      if (el) el.addEventListener('input', updateSessionTotal);
+    });
+
     // Textes éditables côté front. Ordre = ordre d'affichage dans
     // l'admin. `multiline: true` => textarea, sinon input. La clé doit
     // matcher celle dans DEFAULT_CONFIG.texts côté serveur.
@@ -203,13 +237,13 @@
 
     function load(c) {
       cfg = c;
-      document.getElementById('t-phase1').value  = msToSec(c.timings.phase1DurationMs);
-      document.getElementById('t-buzz').value    = msToSec(c.timings.buzzerDurationMs);
-      document.getElementById('t-warn').value    = msToSec(c.timings.warningModalMs);
-      document.getElementById('t-victory').value = msToSec(c.timings.victoryStartMs);
-      document.getElementById('t-total').value   = msToSec(c.timings.totalDurationMs);
-      document.getElementById('t-victorymodal').value = msToSec(c.timings.victoryModalMs ?? 30000);
-      document.getElementById('t-postmodalmax').value = msToSec(c.timings.postModalMaxMs ?? 0);
+      document.getElementById('t-t1').value          = msToSec(c.timings.t1Ms);
+      document.getElementById('t-warning-dur').value = msToSec(c.timings.warningDurationMs);
+      document.getElementById('t-t2').value          = msToSec(c.timings.t2Ms);
+      document.getElementById('t-t3').value          = msToSec(c.timings.t3Ms);
+      document.getElementById('t-t4').value          = msToSec(c.timings.t4Ms);
+      document.getElementById('t-t5').value          = msToSec(c.timings.t5Ms);
+      updateSessionTotal();
       document.getElementById('secret').value    = c.secretCode || '';
       document.getElementById('base-url').value  = c.publicBaseUrl || '';
       document.getElementById('smtp-host').value = c.smtp.host || '';
@@ -221,7 +255,72 @@
       emails = Array.isArray(c.emails) ? [...c.emails] : [];
       renderEmails();
       renderTextsGrid(c.texts || {});
+      customModals = Array.isArray(c.customModals)
+        ? c.customModals.map(m => ({...m}))
+        : [];
+      renderCustomModals();
     }
+
+    // ---- Modales annexes (customModals) ----
+    let customModals = [];
+
+    function renderCustomModals() {
+      const root = document.getElementById('custom-modals-list');
+      if (!customModals.length) {
+        root.innerHTML = '<div class="empty">Aucune modale annexe. Cliquez « + Ajouter » pour en créer.</div>';
+        return;
+      }
+      root.innerHTML = customModals.map((m, i) => `
+        <div class="row" style="grid-template-columns: 1fr 1fr 2fr 3fr auto; gap:.6rem; padding:.6rem; background:rgba(141,160,120,.08); border-radius:10px; margin-bottom:.5rem; align-items:end;">
+          <div>
+            <label style="font-size:.75rem; margin:0 0 .15rem;">Apparait à (s)</label>
+            <input type="number" min="0" step="0.1" value="${msToSec(m.t)}" data-cm-field="t" data-cm-i="${i}">
+          </div>
+          <div>
+            <label style="font-size:.75rem; margin:0 0 .15rem;">Durée (s)</label>
+            <input type="number" min="0" step="0.1" value="${msToSec(m.duration)}" data-cm-field="duration" data-cm-i="${i}">
+          </div>
+          <div>
+            <label style="font-size:.75rem; margin:0 0 .15rem;">Titre</label>
+            <input type="text" value="${escapeHtml(m.title || '')}" data-cm-field="title" data-cm-i="${i}" placeholder="Titre du modal">
+          </div>
+          <div>
+            <label style="font-size:.75rem; margin:0 0 .15rem;">Message</label>
+            <input type="text" value="${escapeHtml(m.message || '')}" data-cm-field="message" data-cm-i="${i}" placeholder="Texte affiché en dessous">
+          </div>
+          <button type="button" class="btn danger" data-cm-del="${i}" title="Supprimer">×</button>
+        </div>
+      `).join('');
+      root.querySelectorAll('[data-cm-field]').forEach(inp => {
+        inp.addEventListener('input', () => {
+          const i = +inp.getAttribute('data-cm-i');
+          const f = inp.getAttribute('data-cm-field');
+          if (f === 't' || f === 'duration') {
+            customModals[i][f] = secToMs(inp.value);
+          } else {
+            customModals[i][f] = inp.value;
+          }
+        });
+      });
+      root.querySelectorAll('[data-cm-del]').forEach(b => {
+        b.addEventListener('click', () => {
+          customModals.splice(+b.getAttribute('data-cm-del'), 1);
+          renderCustomModals();
+        });
+      });
+    }
+
+    document.getElementById('custom-modal-add').addEventListener('click', () => {
+      const n = customModals.length + 1;
+      customModals.push({
+        id: 'm' + n,
+        t: 20000,
+        duration: 5000,
+        title: 'Titre',
+        message: 'Message à afficher'
+      });
+      renderCustomModals();
+    });
 
     document.getElementById('email-add').addEventListener('click', () => {
       const inp = document.getElementById('email-input');
@@ -236,16 +335,16 @@
     document.getElementById('save').addEventListener('click', async () => {
       const payload = {
         timings: {
-          phase1DurationMs: secToMs(document.getElementById('t-phase1').value),
-          buzzerDurationMs: secToMs(document.getElementById('t-buzz').value),
-          warningModalMs:   secToMs(document.getElementById('t-warn').value),
-          victoryStartMs:   secToMs(document.getElementById('t-victory').value),
-          totalDurationMs:  secToMs(document.getElementById('t-total').value),
-          victoryModalMs:   secToMs(document.getElementById('t-victorymodal').value),
-          postModalMaxMs:   secToMs(document.getElementById('t-postmodalmax').value)
+          t1Ms:              secToMs(document.getElementById('t-t1').value),
+          warningDurationMs: secToMs(document.getElementById('t-warning-dur').value),
+          t2Ms:              secToMs(document.getElementById('t-t2').value),
+          t3Ms:              secToMs(document.getElementById('t-t3').value),
+          t4Ms:              secToMs(document.getElementById('t-t4').value),
+          t5Ms:              secToMs(document.getElementById('t-t5').value)
         },
         secretCode: document.getElementById('secret').value,
         publicBaseUrl: document.getElementById('base-url').value,
+        customModals,
         emails,
         smtp: {
           host: document.getElementById('smtp-host').value,

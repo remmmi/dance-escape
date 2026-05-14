@@ -208,42 +208,68 @@ recharger le code après un déploiement.
 
 ## 5. Direction artistique
 
-Thème **shabby chic vert sauge printanier**, esthétique mariage. À
-respecter scrupuleusement si tu touches au front.
+Thème **Art Nouveau délicat, esthétique mariage** — inspiration Mucha
+épurée. Lignes organiques (whiplash curves), motifs floraux, palette
+sauge + rose pâle + or. Lettrage **moderne et lisible** (pas de polices
+décoratives de l'époque), pour rester immédiatement lisible à 1–2 m
+en mode kiosk. À respecter scrupuleusement si tu touches au front.
 
 ### Palette (variables CSS dans `style.css` / `admin.css`)
 
-| Var          | Hex      | Usage                          |
-|--------------|----------|--------------------------------|
-| `--sage-400` | `#9CAF88`| accent principal, boutons      |
-| `--sage-500` | `#7E926A`| boutons hover, sage profond    |
-| `--sage-700` | `#4B5A40`| texte sage foncé, titres       |
-| `--cream`    | `#FBF8F1`| fond clair, texte sur sage     |
-| `--cream-2`  | `#F5EFE3`| fond dégradé                   |
-| `--rose`     | `#E6C9C0`| accent doux                    |
-| `--rose-2`   | `#D9A89C`| accent buzzer/warning          |
-| `--gold`     | `#C9A961`| accent victoire, dorure        |
-| `--ink`      | `#3A4030`| texte principal                |
+| Var          | Hex      | Usage                                  |
+|--------------|----------|----------------------------------------|
+| `--sage-400` | `#8DA078`| accent clair, hover bouton             |
+| `--sage-500` | `#7B8D69`| sauge « vrai » — boutons, bordures     |
+| `--sage-600` | `#5F6F4F`| labels secondaires, tiges arabesques   |
+| `--sage-700` | `#475437`| titres, accents marqués                |
+| `--sage-800` | `#34402A`| haut-contraste réserve                 |
+| `--cream`    | `#FBF8F1`| fond clair                             |
+| `--cream-2`  | `#F5EFE3`| fond dégradé                           |
+| `--rose`     | `#E6C9C0`| pétales rose pâle, accent doux         |
+| `--rose-2`   | `#A86A5C`| terre-cuite, cœur de rose, warning     |
+| `--gold`     | `#8A6A1F`| doré encre, accents victoire           |
+| `--ink`      | `#3A4730`| texte principal (vert sauge foncé)     |
 
 ### Typographie
 
-- **Cormorant Garamond** (serif) : titres et corps.
-- **Italianno** (script) : grands titres décoratifs (« Dance Escape »,
-  « Dansez ! », countdown).
-- **Inter** (sans) : UI admin, badges, helpers.
+- **Marcellus** (serif display, all-caps friendly) : titres décoratifs.
+  Elégance Art Nouveau, parfaitement lisible, sans la calligraphie
+  surchargée des polices d'époque.
+- **Cormorant Garamond** (serif) : corps de texte, sous-titres,
+  helpers. Conservé pour sa lisibilité à distance.
+- **Inter** (sans) : UI admin, boutons utilitaires, badges.
 
-Toutes chargées via Google Fonts. Ne pas remplacer sans raison.
+Toutes via Google Fonts. **Pas d'Italianno** (script trop rustique,
+incompatible avec la direction art nouveau moderne).
+
+### Ornements SVG
+
+Deux ressources réutilisables dans `public/img/` :
+
+- `ornament-corner.svg` : whiplash curve sauge + rose pâle stylisée.
+  Vocation **angles de page** (kiosk : 4 coins via rotation CSS).
+  Couleurs codées en dur (compatible `background-image: url()`).
+- `ornament-divider.svg` : séparateur horizontal sinueux avec rose
+  centrale et bourgeons aux extrémités. Pour cloisonner des sections
+  d'admin sans rompre la verticalité.
+
+Pour ajouter d'autres motifs : garder la même charte (whiplash curves,
+opacités < .75, palette identique), au format SVG monochrome ou
+multi-couleurs codées en dur. Pas de PNG raster.
 
 ### Esthétique
 
-- Fonds : dégradés crème + halos radiaux sauge/rose floutés
-  (`radial-gradient` dans `body`).
+- Fonds : crème uni + halos radiaux sauge/rose très subtils
+  (`radial-gradient` flouté dans `body`).
 - Cartes : `border-radius: 18–28px`, `box-shadow` doux, bordure
-  `rgba(156,175,136,.35)`.
-- Boutons « start » : pilule, gradient sauge, ornement `✿`.
-- Texte : `text-shadow` léger style « gravé sur papier mat ».
-- Animations : `pulse` (anneaux), `shimmy` (danseuse), `fade`
-  (modaux). Confettis = canvas maison avec palette ci-dessus.
+  `rgba(95,111,79,.22)`. Possibilité d'ajouter un `ornament-corner.svg`
+  en `background-image` ancré dans un coin.
+- Boutons « start » : pilule, gradient sauge, micro-ornement floral
+  (`✿` ou SVG inline).
+- Texte : `text-shadow` léger style « papier mat ».
+- Animations : `pulse` (anneaux), `shimmy` (danseuse), `fade` (modaux).
+  Confettis = canvas maison, palette sage/gold/rose, `z-index: 150`
+  pour passer **par-dessus** la modale et son overlay.
 
 ## 6. Conventions
 

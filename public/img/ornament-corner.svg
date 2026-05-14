@@ -1,0 +1,154 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 280 280" aria-hidden="true">
+  <!--
+    Ornement Art Nouveau / illustration vintage type peony.
+    Pétales en teardrop pointant vers l'extérieur, feuilles amande
+    avec nervure centrale, bourgeons en goutte à cœur jaune-crème.
+    Tous les attributs sont INLINE (pas de <style>) pour garantir
+    le rendu identique sur navigateurs ET outils de rendu externes.
+  -->
+  <defs>
+    <linearGradient id="vine1" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%"  stop-color="#475437" stop-opacity=".85"/>
+      <stop offset="100%" stop-color="#7B8D69" stop-opacity=".55"/>
+    </linearGradient>
+    <linearGradient id="vine2" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%"  stop-color="#5F6F4F" stop-opacity=".7"/>
+      <stop offset="100%" stop-color="#A7B894" stop-opacity=".4"/>
+    </linearGradient>
+  </defs>
+
+  <!-- Whiplash principal -->
+  <path d="M 0 0 C 70 25, 80 70, 110 105 C 140 140, 170 175, 220 215"
+        fill="none" stroke="url(#vine1)" stroke-width="2.4" stroke-linecap="round"/>
+  <!-- Whiplash secondaire -->
+  <path d="M 0 0 C 35 60, 95 70, 115 130 C 140 195, 195 200, 240 250"
+        fill="none" stroke="url(#vine2)" stroke-width="1.4" stroke-linecap="round"/>
+  <!-- Vrille -->
+  <path d="M 0 0 C 60 75, 130 60, 145 120"
+        fill="none" stroke="#475437" stroke-width=".9" stroke-linecap="round" opacity=".4"/>
+  <path d="M 145 120 C 158 122, 164 132, 158 142 C 152 152, 138 148, 138 138 C 138 132, 144 130, 148 134"
+        fill="none" stroke="#5F6F4F" stroke-width=".9" opacity=".5"/>
+
+  <!-- ============== FEUILLES AMANDE ============== -->
+  <!-- Feuille 1 -->
+  <g transform="translate(45 32) rotate(30)">
+    <path fill="#8FA378" stroke="#475437" stroke-width="1.4" stroke-linejoin="round"
+          d="M 0 -16 C 5 -14, 8 -7, 8 0 C 8 7, 5 14, 0 16 C -5 14, -8 7, -8 0 C -8 -7, -5 -14, 0 -16 Z"/>
+    <path fill="none" stroke="#475437" stroke-width=".9" opacity=".75" stroke-linecap="round"
+          d="M 0 -14 L 0 14 M 0 -8 L 5 -4 M 0 -8 L -5 -4 M 0 0 L 6 4 M 0 0 L -6 4 M 0 8 L 4 11 M 0 8 L -4 11"/>
+  </g>
+
+  <!-- Feuille 2 -->
+  <g transform="translate(80 75) rotate(60)">
+    <path fill="#8FA378" stroke="#475437" stroke-width="1.4" stroke-linejoin="round"
+          d="M 0 -20 C 6 -18, 9 -9, 9 0 C 9 9, 6 18, 0 20 C -6 18, -9 9, -9 0 C -9 -9, -6 -18, 0 -20 Z"/>
+    <path fill="none" stroke="#475437" stroke-width=".9" opacity=".75" stroke-linecap="round"
+          d="M 0 -18 L 0 18 M 0 -10 L 6 -6 M 0 -10 L -6 -6 M 0 0 L 7 4 M 0 0 L -7 4 M 0 10 L 5 13 M 0 10 L -5 13"/>
+  </g>
+
+  <!-- Feuille 3 : grande -->
+  <g transform="translate(112 125) rotate(75)">
+    <path fill="#8FA378" stroke="#475437" stroke-width="1.4" stroke-linejoin="round"
+          d="M 0 -24 C 7 -22, 11 -11, 11 0 C 11 11, 7 22, 0 24 C -7 22, -11 11, -11 0 C -11 -11, -7 -22, 0 -24 Z"/>
+    <path fill="none" stroke="#475437" stroke-width=".9" opacity=".75" stroke-linecap="round"
+          d="M 0 -22 L 0 22 M 0 -12 L 8 -7 M 0 -12 L -8 -7 M 0 -2 L 9 2 M 0 -2 L -9 2 M 0 10 L 7 14 M 0 10 L -7 14"/>
+  </g>
+
+  <!-- Feuille 4 -->
+  <g transform="translate(160 178) rotate(90)">
+    <path fill="#8FA378" stroke="#475437" stroke-width="1.4" stroke-linejoin="round"
+          d="M 0 -20 C 6 -18, 9 -9, 9 0 C 9 9, 6 18, 0 20 C -6 18, -9 9, -9 0 C -9 -9, -6 -18, 0 -20 Z"/>
+    <path fill="none" stroke="#475437" stroke-width=".9" opacity=".75" stroke-linecap="round"
+          d="M 0 -18 L 0 18 M 0 -10 L 6 -6 M 0 -10 L -6 -6 M 0 0 L 7 4 M 0 0 L -7 4 M 0 10 L 5 13 M 0 10 L -5 13"/>
+  </g>
+
+  <!-- Petite feuille -->
+  <g transform="translate(50 110) rotate(-15)" opacity=".85">
+    <path fill="#8FA378" stroke="#475437" stroke-width="1.2" stroke-linejoin="round"
+          d="M 0 -12 C 4 -10, 6 -5, 6 0 C 6 5, 4 10, 0 12 C -4 10, -6 5, -6 0 C -6 -5, -4 -10, 0 -12 Z"/>
+    <path fill="none" stroke="#475437" stroke-width=".8" opacity=".7" stroke-linecap="round"
+          d="M 0 -10 L 0 10 M 0 -4 L 4 -1 M 0 -4 L -4 -1 M 0 4 L 4 7 M 0 4 L -4 7"/>
+  </g>
+
+  <!-- ============== BOURGEONS ============== -->
+  <!-- Bourgeon 1 : moyen, ouvert avec sépales -->
+  <g transform="translate(140 95)">
+    <path fill="#8FA378" stroke="#475437" stroke-width="1.1" stroke-linejoin="round"
+          d="M -6 8 C -14 6, -16 -2, -10 -7 C -8 -3, -8 4, -6 8 Z"/>
+    <path fill="#8FA378" stroke="#475437" stroke-width="1.1" stroke-linejoin="round"
+          d="M 6 8 C 14 6, 16 -2, 10 -7 C 8 -3, 8 4, 6 8 Z"/>
+    <path fill="#F2C6BD" stroke="#7A3C30" stroke-width="1.2" stroke-linejoin="round"
+          d="M 0 -14 C 7 -12, 10 -4, 8 5 C 5 10, -5 10, -8 5 C -10 -4, -7 -12, 0 -14 Z"/>
+    <ellipse cx="0" cy="-2" rx="3" ry="5" fill="#F5E0AE" stroke="#7A3C30" stroke-width=".8"/>
+  </g>
+
+  <!-- Bourgeon 2 : petit, fermé -->
+  <g transform="translate(200 175)">
+    <path fill="#8FA378" stroke="#475437" stroke-width=".9" stroke-linejoin="round"
+          d="M -4 8 C -10 6, -11 0, -7 -4 C -6 -1, -6 4, -4 8 Z"/>
+    <path fill="#F2C6BD" stroke="#7A3C30" stroke-width="1.0" stroke-linejoin="round"
+          d="M 0 -10 C 5 -8, 7 -2, 6 4 C 4 8, -4 8, -6 4 C -7 -2, -5 -8, 0 -10 Z"/>
+    <ellipse cx="0" cy="-1" rx="2" ry="3.5" fill="#F5E0AE"/>
+  </g>
+
+  <!-- ============== ROSE PRINCIPALE (pivoine cabbage) ============== -->
+  <g transform="translate(212 212)">
+    <!-- Ombre portée -->
+    <ellipse cx="3" cy="30" rx="32" ry="6" fill="#3D1610" opacity=".18"/>
+
+    <!-- Sépales arrière à la base de la fleur -->
+    <path fill="#8FA378" stroke="#475437" stroke-width="1.3" stroke-linejoin="round"
+          d="M -22 18 C -32 22, -36 30, -30 36 C -24 32, -22 26, -22 18 Z"/>
+    <path fill="#8FA378" stroke="#475437" stroke-width="1.3" stroke-linejoin="round"
+          d="M 22 18 C 32 22, 36 30, 30 36 C 24 32, 22 26, 22 18 Z"/>
+
+    <!-- === COURONNE 1 : 5 grands pétales rose pâle === -->
+    <path fill="#F5C9C0" stroke="#7A3C30" stroke-width="1.1" stroke-linejoin="round"
+          d="M -4 12 C -16 8, -22 0, -18 -10 C -14 -18, -8 -22, -2 -20 Q 0 -22 2 -20 C 8 -22, 14 -18, 18 -10 C 22 0, 16 8, 4 12 Q 0 13 -4 12 Z"
+          transform="rotate(0)"/>
+    <path fill="#F5C9C0" stroke="#7A3C30" stroke-width="1.1" stroke-linejoin="round"
+          d="M -4 12 C -16 8, -22 0, -18 -10 C -14 -18, -8 -22, -2 -20 Q 0 -22 2 -20 C 8 -22, 14 -18, 18 -10 C 22 0, 16 8, 4 12 Q 0 13 -4 12 Z"
+          transform="rotate(72)"/>
+    <path fill="#F5C9C0" stroke="#7A3C30" stroke-width="1.1" stroke-linejoin="round"
+          d="M -4 12 C -16 8, -22 0, -18 -10 C -14 -18, -8 -22, -2 -20 Q 0 -22 2 -20 C 8 -22, 14 -18, 18 -10 C 22 0, 16 8, 4 12 Q 0 13 -4 12 Z"
+          transform="rotate(144)"/>
+    <path fill="#F5C9C0" stroke="#7A3C30" stroke-width="1.1" stroke-linejoin="round"
+          d="M -4 12 C -16 8, -22 0, -18 -10 C -14 -18, -8 -22, -2 -20 Q 0 -22 2 -20 C 8 -22, 14 -18, 18 -10 C 22 0, 16 8, 4 12 Q 0 13 -4 12 Z"
+          transform="rotate(216)"/>
+    <path fill="#F5C9C0" stroke="#7A3C30" stroke-width="1.1" stroke-linejoin="round"
+          d="M -4 12 C -16 8, -22 0, -18 -10 C -14 -18, -8 -22, -2 -20 Q 0 -22 2 -20 C 8 -22, 14 -18, 18 -10 C 22 0, 16 8, 4 12 Q 0 13 -4 12 Z"
+          transform="rotate(288)"/>
+
+    <!-- === COURONNE 2 : 5 pétales saumon, décalés 36° === -->
+    <path fill="#E89E94" stroke="#7A3C30" stroke-width="1.1" stroke-linejoin="round"
+          d="M -3 8 C -11 5, -16 -2, -13 -9 C -10 -14, -5 -17, -1 -15 Q 0 -16 1 -15 C 5 -17, 10 -14, 13 -9 C 16 -2, 11 5, 3 8 Q 0 9 -3 8 Z"
+          transform="rotate(36)"/>
+    <path fill="#E89E94" stroke="#7A3C30" stroke-width="1.1" stroke-linejoin="round"
+          d="M -3 8 C -11 5, -16 -2, -13 -9 C -10 -14, -5 -17, -1 -15 Q 0 -16 1 -15 C 5 -17, 10 -14, 13 -9 C 16 -2, 11 5, 3 8 Q 0 9 -3 8 Z"
+          transform="rotate(108)"/>
+    <path fill="#E89E94" stroke="#7A3C30" stroke-width="1.1" stroke-linejoin="round"
+          d="M -3 8 C -11 5, -16 -2, -13 -9 C -10 -14, -5 -17, -1 -15 Q 0 -16 1 -15 C 5 -17, 10 -14, 13 -9 C 16 -2, 11 5, 3 8 Q 0 9 -3 8 Z"
+          transform="rotate(180)"/>
+    <path fill="#E89E94" stroke="#7A3C30" stroke-width="1.1" stroke-linejoin="round"
+          d="M -3 8 C -11 5, -16 -2, -13 -9 C -10 -14, -5 -17, -1 -15 Q 0 -16 1 -15 C 5 -17, 10 -14, 13 -9 C 16 -2, 11 5, 3 8 Q 0 9 -3 8 Z"
+          transform="rotate(252)"/>
+    <path fill="#E89E94" stroke="#7A3C30" stroke-width="1.1" stroke-linejoin="round"
+          d="M -3 8 C -11 5, -16 -2, -13 -9 C -10 -14, -5 -17, -1 -15 Q 0 -16 1 -15 C 5 -17, 10 -14, 13 -9 C 16 -2, 11 5, 3 8 Q 0 9 -3 8 Z"
+          transform="rotate(324)"/>
+
+    <!-- === CŒUR : 3 petits pétales curlés === -->
+    <path fill="#D77F75" stroke="#7A3C30" stroke-width="1.1" stroke-linejoin="round"
+          d="M -2 5 C -7 3, -10 -2, -8 -7 C -6 -10, -3 -11, -1 -10 Q 0 -11 1 -10 C 3 -11, 6 -10, 8 -7 C 10 -2, 7 3, 2 5 Q 0 6 -2 5 Z"
+          transform="rotate(0)"/>
+    <path fill="#D77F75" stroke="#7A3C30" stroke-width="1.1" stroke-linejoin="round"
+          d="M -2 5 C -7 3, -10 -2, -8 -7 C -6 -10, -3 -11, -1 -10 Q 0 -11 1 -10 C 3 -11, 6 -10, 8 -7 C 10 -2, 7 3, 2 5 Q 0 6 -2 5 Z"
+          transform="rotate(120)"/>
+    <path fill="#D77F75" stroke="#7A3C30" stroke-width="1.1" stroke-linejoin="round"
+          d="M -2 5 C -7 3, -10 -2, -8 -7 C -6 -10, -3 -11, -1 -10 Q 0 -11 1 -10 C 3 -11, 6 -10, 8 -7 C 10 -2, 7 3, 2 5 Q 0 6 -2 5 Z"
+          transform="rotate(240)"/>
+
+    <!-- Scroll central -->
+    <path fill="#F5C9C0" stroke="#7A3C30" stroke-width="1.0" stroke-linejoin="round"
+          d="M -3 0 C -5 -3, -2 -6, 1 -5 C 4 -4, 4 0, 2 1 C 0 2, -2 2, -3 0 Z"/>
+  </g>
+</svg>
