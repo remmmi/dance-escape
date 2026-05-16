@@ -27,10 +27,18 @@
       <p class="overline" data-text="overline">Mariage · Just Married</p>
       <h1 class="title-script" data-text="title">Dance&nbsp;Escape</h1>
       <p class="subtitle" data-text="subtitle">Saurez-vous danser jusqu'au code secret&nbsp;?</p>
-      <button id="btn-start" class="start-btn" type="button">
+      <button id="btn-start" class="start-btn is-disabled" type="button" disabled>
         <span class="start-btn-inner" data-text="startButton">Démarrer la danse</span>
       </button>
       <p class="hint" id="perm-hint" data-text="hint">Activez votre micro et votre caméra à la demande du navigateur.</p>
+    </div>
+    <!-- Debug panel : Shift+D pour afficher/masquer. Forcer un morceau au lieu
+         de la sélection aléatoire. Le panel disparaît au clic Démarrer ou à
+         un nouveau Shift+D ; dans les deux cas, la sélection forcée est
+         oubliée. Pas une UI prod — minimal volontairement. -->
+    <div id="debug-track-panel" hidden style="position:fixed; top:1rem; left:1rem; max-height:80vh; overflow:auto; background:#fff; border:1px solid #5F6F4F; border-radius:8px; padding:.6rem .8rem; box-shadow:0 4px 16px rgba(0,0,0,.18); font-family:Inter,sans-serif; font-size:.85rem; z-index:9999; min-width:18rem;">
+      <div style="font-weight:600; color:#475437; margin-bottom:.4rem;">⚙ Forcer un morceau <small style="font-weight:400;opacity:.6;">(Shift+D pour fermer)</small></div>
+      <div id="debug-track-list" style="display:flex; flex-direction:column; gap:.25rem;"></div>
     </div>
   </main>
 
@@ -53,6 +61,14 @@
       </div>
     </div>
   </section>
+
+  <div id="modal-intro" class="modal" aria-hidden="true">
+    <div class="modal-card info">
+      <h2 data-text="introTitle">Préparez-vous&nbsp;!</h2>
+      <p data-text="introBody">Dansez pour découvrir le code secret. Que le show commence&nbsp;!</p>
+      <div class="countdown"><span id="intro-count">5</span></div>
+    </div>
+  </div>
 
   <div id="modal-warning" class="modal" aria-hidden="true">
     <div class="modal-card warn">

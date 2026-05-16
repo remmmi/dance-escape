@@ -55,6 +55,7 @@ const DEFAULT_CONFIG = {
     // Modele event-driven absolu (cf. kiosk.js runSession). Tous les
     // temps sont en ms depuis T0 (debut session). Le buzzer (1.5s) et
     // le fadeout (10s) sont hardcodes cote front.
+    introDurationMs: 5000,    // intro : compte a rebours avant T0 (musique + recording)
     t1Ms: 10000,              // event 1: modal "Faites mieux" + buzzer
     warningDurationMs: 8000,  // duree du compte a rebours du modal warning
     t2Ms: 40000,              // event 2: victoire (son + confettis + modal code)
@@ -63,6 +64,7 @@ const DEFAULT_CONFIG = {
     t5Ms: 0                   // event 5: debut fadeout. 0 = auto (song_duration - 10s)
   },
   emails: [],
+  emailsEnabled: true,
   smtp: {
     host: '',
     port: 587,
@@ -73,11 +75,31 @@ const DEFAULT_CONFIG = {
   },
   secretCode: 'CODE-SECRET',
   publicBaseUrl: '',
+  // Trickerie visuelle des comptes à rebours (intro + warning). Le temps
+  // réel ne change pas (les events serveur ne sont pas touchés), mais
+  // l'affichage démarre à N = round(T × multiplier) secondes virtuelles
+  // et chaque seconde virtuelle suivante est raccourcie. `intensity` est
+  // un % du raccourcissement max théorique (0–100) : 0 % = linéaire,
+  // 100 % = la dernière seconde virtuelle dure ~0 ms.
+  countdownTrick: {
+    intensity: 60,
+    multiplier: 2.0
+  },
+  // Playlist par défaut au premier boot (data/config.json absent). La
+  // configuration en place sur l'instance live n'est PAS écrasée par
+  // ces valeurs — elles ne servent que pour un clone fresh.
   youtube: [
-    { videoId: 'K4Jkh5aAn-0', title: "au pays d'aragon..",                startSeconds: 0  },
-    { videoId: 'yURRmWtbTbo', title: "MJ Don't Stop 'Til You Get Enough", startSeconds: 14 },
-    { videoId: 'ZNaXb3uuekk', title: "Sex Machine",                       startSeconds: 11 }
+    { videoId: 'sOnqjkJTMaA', title: 'Michael Jackson — Thriller',                   startSeconds: 565, bpm: 118 },
+    { videoId: 'qxa9C2ESdrc', title: 'Macarena (Bayside Boys Remix)',                startSeconds: 0,   bpm: 103 },
+    { videoId: '4bPGxLxogvw', title: 'Maître Gims — Sapés comme jamais (ft. Niska)', startSeconds: 0,   bpm: 100 },
+    { videoId: 'dguwagsajok', title: 'Bratisla Boys — Stach Stach',                  startSeconds: 30,  bpm: 135 },
+    { videoId: 'gJLIiF15wjQ', title: 'Spice Girls — Wannabe',                        startSeconds: 49,  bpm: 110 },
+    { videoId: 'ZRaOzXS1slI', title: 'Claude François — Alexandrie Alexandra',       startSeconds: 0,   bpm: 124 }
   ],
+  // Metadonnees BPM par fichier MP3, indexees par nom de fichier (e.g.
+  // "song.mp3"). Permet de piloter l'animation du danseur sur le tempo
+  // du morceau en cours. 0 ou absent = vitesse par defaut.
+  mp3Meta: {},
   // Modales annexes (independantes de la timeline T1-T5). Chaque entree
   // declenche un overlay au timestamp `t` (ms depuis T0) avec titre +
   // message pendant `duration`. N'affecte pas la musique ni les events.
@@ -92,6 +114,8 @@ const DEFAULT_CONFIG = {
     subtitle:        "Saurez-vous danser jusqu'au code secret ?",
     startButton:     "Démarrer la danse",
     hint:            "Activez votre micro et votre caméra à la demande du navigateur.",
+    introTitle:      "Préparez-vous !",
+    introBody:       "Dansez pour découvrir le code secret. Que le show commence !",
     danceCall:       "Dansez !",
     danceSub:        "Énergie, sourires, mouvements…",
     warningTitle:    "Pas encore ça !",
@@ -200,14 +224,22 @@ app.use(express.static(path.join(ROOT, 'public')));
 app.get('/api/session/config', (_req, res) => {
   const cfg = loadConfig();
   // Build playlist from disk mp3s + youtube entries
+  const mp3Meta = (cfg.mp3Meta && typeof cfg.mp3Meta === 'object') ? cfg.mp3Meta : {};
   const mp3Files = fs.readdirSync(MP3_DIR)
     .filter(f => f.toLowerCase().endsWith('.mp3'))
-    .map(f => ({ type: 'mp3', url: '/uploads/mp3/' + encodeURIComponent(f), title: f.replace(/\.mp3$/i, '') }));
+    .map(f => ({
+      type: 'mp3',
+      url: '/uploads/mp3/' + encodeURIComponent(f),
+      title: f.replace(/\.mp3$/i, ''),
+      filename: f,
+      bpm: Number.isFinite(mp3Meta[f] && mp3Meta[f].bpm) ? mp3Meta[f].bpm : 0
+    }));
   const ytItems = (cfg.youtube || []).map(y => ({
     type: 'youtube',
     videoId: y.videoId,
     title: y.title || y.videoId,
-    startSeconds: Number.isFinite(y.startSeconds) ? y.startSeconds : 0
+    startSeconds: Number.isFinite(y.startSeconds) ? y.startSeconds : 0,
+    bpm: Number.isFinite(y.bpm) ? y.bpm : 0
   }));
   const playlist = [...mp3Files, ...ytItems];
   res.json({
@@ -219,7 +251,8 @@ app.get('/api/session/config', (_req, res) => {
       victoryUrl: sfxUrl('victory')
     },
     texts: cfg.texts || DEFAULT_CONFIG.texts,
-    customModals: Array.isArray(cfg.customModals) ? cfg.customModals : []
+    customModals: Array.isArray(cfg.customModals) ? cfg.customModals : [],
+    countdownTrick: cfg.countdownTrick || DEFAULT_CONFIG.countdownTrick
   });
 });
 
@@ -278,15 +311,18 @@ app.post('/api/session/upload', videoUpload.single('video'), async (req, res) =>
 async function sendVideoEmail(meta) {
   const cfg = loadConfig();
   const { smtp, emails, publicBaseUrl } = cfg;
+  if (cfg.emailsEnabled === false) {
+    console.log('[mail] disabled by admin toggle, skipping');
+    return;
+  }
   if (!emails || emails.length === 0) return;
   if (!smtp.host || !smtp.user) {
     console.log('[mail] SMTP not configured, skipping');
     return;
   }
   const base = publicBaseUrl || '';
-  // Lien vers la page web publique de visionnage (player de qualité +
-  // duration fix pour les WebM MediaRecorder). Le destinataire n'a pas
-  // les credentials admin, c'est une route publique non listée.
+  // Lien vers la page web publique de visionnage. Le destinataire n'a
+  // pas les credentials admin, c'est une route publique non listée.
   const link = `${base}/v.html?id=${encodeURIComponent(meta.id)}`;
   const adminLink = `${base}/justmarried/videos.html`;
   const transporter = nodemailer.createTransport({
@@ -329,6 +365,9 @@ app.post('/api/admin/config', (req, res) => {
   if (Array.isArray(incoming.emails)) {
     cur.emails = incoming.emails.map(s => String(s).trim()).filter(Boolean);
   }
+  if (typeof incoming.emailsEnabled === 'boolean') {
+    cur.emailsEnabled = incoming.emailsEnabled;
+  }
   if (incoming.smtp && typeof incoming.smtp === 'object') {
     for (const k of ['host', 'user', 'pass', 'from']) {
       if (typeof incoming.smtp[k] === 'string') cur.smtp[k] = incoming.smtp[k];
@@ -347,17 +386,43 @@ app.post('/api/admin/config', (req, res) => {
     }
   }
   if (typeof incoming.publicBaseUrl === 'string') cur.publicBaseUrl = incoming.publicBaseUrl.replace(/\/+$/, '');
+  if (incoming.countdownTrick && typeof incoming.countdownTrick === 'object') {
+    cur.countdownTrick = cur.countdownTrick || { ...DEFAULT_CONFIG.countdownTrick };
+    const intensity = Number(incoming.countdownTrick.intensity);
+    const multiplier = Number(incoming.countdownTrick.multiplier);
+    // intensity = % du raccourcissement max théorique [0, 100].
+    // multiplier = facteur de gonflage initial [1, 10].
+    if (Number.isFinite(intensity)) cur.countdownTrick.intensity = Math.max(0, Math.min(100, intensity));
+    if (Number.isFinite(multiplier)) cur.countdownTrick.multiplier = Math.max(1, Math.min(10, multiplier));
+  }
   if (Array.isArray(incoming.youtube)) {
     cur.youtube = incoming.youtube
       .map(y => {
         const s = Number(y.startSeconds);
+        const b = Number(y.bpm);
         return {
           videoId: String(y.videoId || '').trim(),
           title: String(y.title || '').trim(),
-          startSeconds: Number.isFinite(s) && s >= 0 ? Math.floor(s) : 0
+          startSeconds: Number.isFinite(s) && s >= 0 ? Math.floor(s) : 0,
+          // BPM réaliste : 30–300. 0 = aucune valeur, animation par défaut.
+          bpm: Number.isFinite(b) && b >= 30 && b <= 300 ? Math.round(b) : 0
         };
       })
       .filter(y => y.videoId);
+  }
+  if (incoming.mp3Meta && typeof incoming.mp3Meta === 'object') {
+    // On écrase la map complète. Validation : clé = nom safe, valeur = { bpm }.
+    const next = {};
+    for (const k of Object.keys(incoming.mp3Meta)) {
+      if (!isSafeName(k)) continue;
+      const entry = incoming.mp3Meta[k];
+      if (!entry || typeof entry !== 'object') continue;
+      const b = Number(entry.bpm);
+      if (Number.isFinite(b) && b >= 30 && b <= 300) {
+        next[k] = { bpm: Math.round(b) };
+      }
+    }
+    cur.mp3Meta = next;
   }
   if (Array.isArray(incoming.customModals)) {
     cur.customModals = incoming.customModals
@@ -439,6 +504,12 @@ app.delete('/api/admin/mp3/:name', (req, res) => {
   const p = path.join(MP3_DIR, name);
   if (!fs.existsSync(p)) return res.status(404).json({ error: 'introuvable' });
   fs.unlinkSync(p);
+  // Nettoie aussi l'entrée mp3Meta orpheline si elle existait.
+  const cfg = loadConfig();
+  if (cfg.mp3Meta && cfg.mp3Meta[name]) {
+    delete cfg.mp3Meta[name];
+    saveConfig(cfg);
+  }
   res.json({ ok: true });
 });
 

@@ -87,6 +87,42 @@
     </div>
 
     <div class="card">
+      <h2>Modal d'intro</h2>
+      <p class="help">Modal affiché juste après le clic « Démarrer », avant que la musique et l'enregistrement ne commencent. La durée règle aussi le compte à rebours. À 0 s, le modal est désactivé.</p>
+      <div class="row" style="grid-template-columns: 1fr 2fr 3fr; gap:.6rem; padding:.6rem; background:rgba(141,160,120,.08); border-radius:10px; align-items:end;">
+        <div>
+          <label style="font-size:.75rem; margin:0 0 .15rem;">Durée (s)</label>
+          <input type="number" id="intro-duration" min="0" step="0.1">
+        </div>
+        <div>
+          <label style="font-size:.75rem; margin:0 0 .15rem;">Titre</label>
+          <input type="text" id="intro-title" placeholder="Titre du modal">
+        </div>
+        <div>
+          <label style="font-size:.75rem; margin:0 0 .15rem;">Message</label>
+          <input type="text" id="intro-body" placeholder="Texte affiché en dessous">
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>Stress des comptes à rebours</h2>
+      <p class="help">Les comptes à rebours du <strong>modal d'intro</strong> et du <strong>modal d'échec</strong> affichent une valeur gonflée qui accélère sur la fin. Le timing réel des événements n'est pas modifié — c'est purement visuel pour stresser les danseurs. <strong>Les 2 premières secondes virtuelles s'égrènent toujours à vitesse réelle</strong> (1 par seconde) pour laisser le temps de lire le titre du modal ; la compression démarre ensuite.</p>
+      <div class="row" style="grid-template-columns: 1fr 1fr; gap:1.5rem;">
+        <div>
+          <label>Multiplicateur initial : <strong><span id="trick-mult-val">2.0</span>×</strong></label>
+          <input type="range" id="trick-multiplier" min="1" max="10" step="0.1" value="2" style="width:100%;">
+          <div class="help">Affichage de départ. À <strong>1×</strong> on démarre à la vraie durée. À <strong>2×</strong> on démarre au double (10 s réelles affichées « 20 »).</div>
+        </div>
+        <div>
+          <label>Intensité du stress : <strong><span id="trick-int-val">60</span> %</strong></label>
+          <input type="range" id="trick-intensity" min="0" max="100" step="1" value="60" style="width:100%;">
+          <div class="help">Chaque seconde virtuelle suivante est raccourcie. À <strong>0&nbsp;%</strong> le décompte est régulier (pas d'effet). À <strong>100&nbsp;%</strong> la dernière seconde virtuelle se compresse à zéro. Plus le multiplicateur monte et la phase est courte, plus l'effet absolu est limité — le % est relatif au maximum possible.</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
       <h2>Modales annexes</h2>
       <p class="help">Messages affichés sur le kiosk pendant la session, indépendants des événements T1-T5 (n'affectent ni la musique ni l'enregistrement). Fond sage, durée libre. Si deux modales se chevauchent, la suivante remplace la précédente.</p>
       <div id="custom-modals-list" style="margin-bottom:1rem;"></div>
@@ -101,8 +137,14 @@
     </div>
 
     <div class="card">
-      <h2>Destinataires email</h2>
-      <div id="emails-chips" class="chips"></div>
+      <div style="display:flex; align-items:center; justify-content:space-between; gap:1rem; flex-wrap:wrap;">
+        <h2 style="margin:0;">Destinataires email</h2>
+        <label style="display:inline-flex; align-items:center; gap:.5rem; cursor:pointer; user-select:none;">
+          <input type="checkbox" id="emails-enabled" style="width:1.1rem; height:1.1rem; cursor:pointer;">
+          <span>Envoi automatique activé</span>
+        </label>
+      </div>
+      <div id="emails-chips" class="chips" style="margin-top:.6rem;"></div>
       <div class="youtube-row" style="margin-top:.6rem;">
         <input type="email" id="email-input" placeholder="prenom@exemple.fr">
         <input type="text" id="email-placeholder" style="visibility:hidden;">
@@ -166,22 +208,38 @@
     // (busy=true) jusqu'a T5+10s (fin du fondu + reset). Si T5=0 le calcul
     // depend de la duree du morceau, donc on affiche "auto".
     function updateSessionTotal() {
+      const intro = parseFloat(document.getElementById('intro-duration').value) || 0;
       const t4 = parseFloat(document.getElementById('t-t4').value) || 0;
       const t5 = parseFloat(document.getElementById('t-t5').value) || 0;
       const fmt = n => (n % 1 === 0 ? n.toFixed(0) : n.toFixed(1));
+      const prefix = intro > 0 ? `Intro ${fmt(intro)} s + ` : '';
       let txt;
       if (t5 > 0) {
-        txt = `⏱ Reset complet du kiosk à T5+10s = ${fmt(t5 + 10)} s. Modal code disparaît à T4 = ${fmt(t4)} s.`;
+        txt = `⏱ ${prefix}Reset complet à T5+10s = ${fmt(t5 + 10)} s depuis T0. Modal code disparaît à T4 = ${fmt(t4)} s.`;
       } else {
-        txt = `⏱ Reset complet calé sur la fin du morceau (T5 auto = durée du morceau - 10 s). Modal code disparaît à T4 = ${fmt(t4)} s.`;
+        txt = `⏱ ${prefix}Reset complet calé sur la fin du morceau (T5 auto). Modal code disparaît à T4 = ${fmt(t4)} s.`;
       }
       const el = document.getElementById('session-total');
       if (el) el.textContent = txt;
     }
     // Re-compute live on every keystroke in any of the inputs that matter.
-    ['t-t4', 't-t5'].forEach(id => {
+    ['intro-duration', 't-t4', 't-t5'].forEach(id => {
       const el = document.getElementById(id);
       if (el) el.addEventListener('input', updateSessionTotal);
+    });
+
+    // Sliders du "stress" : met à jour les valeurs affichées à côté des
+    // labels en live. Pas de recalcul à faire ailleurs — c'est purement
+    // visuel et le kiosk relit la config au prochain bootstrap (max 60 s).
+    function updateTrickLabels() {
+      const i = parseFloat(document.getElementById('trick-intensity').value);
+      const m = parseFloat(document.getElementById('trick-multiplier').value);
+      document.getElementById('trick-int-val').textContent = String(Math.round(i));
+      document.getElementById('trick-mult-val').textContent = m.toFixed(1);
+    }
+    ['trick-intensity', 'trick-multiplier'].forEach(id => {
+      const el = document.getElementById(id);
+      if (el) el.addEventListener('input', updateTrickLabels);
     });
 
     // Textes éditables côté front. Ordre = ordre d'affichage dans
@@ -237,6 +295,9 @@
 
     function load(c) {
       cfg = c;
+      document.getElementById('intro-duration').value = msToSec(c.timings.introDurationMs);
+      document.getElementById('intro-title').value    = (c.texts && c.texts.introTitle) || '';
+      document.getElementById('intro-body').value     = (c.texts && c.texts.introBody) || '';
       document.getElementById('t-t1').value          = msToSec(c.timings.t1Ms);
       document.getElementById('t-warning-dur').value = msToSec(c.timings.warningDurationMs);
       document.getElementById('t-t2').value          = msToSec(c.timings.t2Ms);
@@ -244,6 +305,10 @@
       document.getElementById('t-t4').value          = msToSec(c.timings.t4Ms);
       document.getElementById('t-t5').value          = msToSec(c.timings.t5Ms);
       updateSessionTotal();
+      const trick = c.countdownTrick || { intensity: 2.0, multiplier: 2.0 };
+      document.getElementById('trick-intensity').value = trick.intensity;
+      document.getElementById('trick-multiplier').value = trick.multiplier;
+      updateTrickLabels();
       document.getElementById('secret').value    = c.secretCode || '';
       document.getElementById('base-url').value  = c.publicBaseUrl || '';
       document.getElementById('smtp-host').value = c.smtp.host || '';
@@ -254,6 +319,7 @@
       document.getElementById('smtp-from').value = c.smtp.from || '';
       emails = Array.isArray(c.emails) ? [...c.emails] : [];
       renderEmails();
+      document.getElementById('emails-enabled').checked = c.emailsEnabled !== false;
       renderTextsGrid(c.texts || {});
       customModals = Array.isArray(c.customModals)
         ? c.customModals.map(m => ({...m}))
@@ -333,8 +399,12 @@
     });
 
     document.getElementById('save').addEventListener('click', async () => {
+      const collectedTexts = collectTexts();
+      collectedTexts.introTitle = document.getElementById('intro-title').value;
+      collectedTexts.introBody  = document.getElementById('intro-body').value;
       const payload = {
         timings: {
+          introDurationMs:   secToMs(document.getElementById('intro-duration').value),
           t1Ms:              secToMs(document.getElementById('t-t1').value),
           warningDurationMs: secToMs(document.getElementById('t-warning-dur').value),
           t2Ms:              secToMs(document.getElementById('t-t2').value),
@@ -344,8 +414,13 @@
         },
         secretCode: document.getElementById('secret').value,
         publicBaseUrl: document.getElementById('base-url').value,
+        countdownTrick: {
+          intensity:  parseFloat(document.getElementById('trick-intensity').value),
+          multiplier: parseFloat(document.getElementById('trick-multiplier').value)
+        },
         customModals,
         emails,
+        emailsEnabled: document.getElementById('emails-enabled').checked,
         smtp: {
           host: document.getElementById('smtp-host').value,
           port: +document.getElementById('smtp-port').value,
@@ -354,7 +429,7 @@
           pass: document.getElementById('smtp-pass').value,
           from: document.getElementById('smtp-from').value
         },
-        texts: collectTexts()
+        texts: collectedTexts
       };
       try {
         const r = await api('/api/admin/config', { method: 'POST', body: JSON.stringify(payload) });

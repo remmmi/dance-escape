@@ -40,10 +40,54 @@
 
   <script src="/justmarried/js/admin-common.js"></script>
   <script>
-    const { toast, fmtDate, fmtSize, api, confirmDelete, fixVideoDuration } = window.Admin;
+    const { toast, fmtDate, fmtSize, api, confirmDelete } = window.Admin;
 
     function escapeHtml(s) {
       return String(s).replace(/[&<>"']/g, c => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[c]));
+    }
+
+    // IDs des vidéos actuellement affichées dans la grille — utilisé par le
+    // polling pour ne réinsérer QUE les nouvelles, sans re-rendre tout.
+    let knownVideoIds = new Set();
+
+    function renderVideoCard(v) {
+      const url = '/uploads/videos/' + encodeURIComponent(v.filename);
+      return `
+      <div class="video-card" data-vid-id="${v.id}">
+        <div class="video-thumb" data-open="${escapeHtml(url)}" data-music="${escapeHtml(v.music || '')}" data-date="${escapeHtml(v.createdAt || '')}">
+          <video src="${url}#t=0.5" preload="metadata" muted></video>
+          <div class="play">▶</div>
+        </div>
+        <div class="video-meta">
+          <div class="date">${fmtDate(v.createdAt)}</div>
+          <div class="music">♪ ${escapeHtml(v.music || '—')}</div>
+          <div class="muted">${fmtSize(v.size)}</div>
+        </div>
+        <div class="video-actions">
+          <a class="btn secondary" href="${url}" download="${escapeHtml(v.filename)}">⤓ Télécharger</a>
+          <button class="btn danger" data-del="${v.id}">Supprimer</button>
+        </div>
+      </div>`;
+    }
+
+    function wireCardListeners(scope) {
+      scope.querySelectorAll('[data-open]').forEach(el => {
+        if (el.dataset.wired) return;
+        el.dataset.wired = '1';
+        el.addEventListener('click', () => openLightbox(el.getAttribute('data-open'), el.getAttribute('data-music'), el.getAttribute('data-date')));
+      });
+      scope.querySelectorAll('[data-del]').forEach(b => {
+        if (b.dataset.wired) return;
+        b.dataset.wired = '1';
+        b.addEventListener('click', async () => {
+          if (!confirmDelete('Supprimer cette vidéo définitivement ?')) return;
+          try {
+            await api('/api/admin/videos/' + b.getAttribute('data-del'), { method: 'DELETE' });
+            toast('Supprimé');
+            load();
+          } catch (e) { toast(e.message, true); }
+        });
+      });
     }
 
     async function load() {
@@ -53,48 +97,48 @@
         const grid = document.getElementById('grid');
         if (!list.length) {
           grid.innerHTML = '<div class="empty">Aucune vidéo encore enregistrée.</div>';
+          knownVideoIds.clear();
           return;
         }
-        grid.innerHTML = list.map(v => {
-          const url = '/uploads/videos/' + encodeURIComponent(v.filename);
-          return `
-          <div class="video-card">
-            <div class="video-thumb" data-open="${escapeHtml(url)}" data-music="${escapeHtml(v.music || '')}" data-date="${escapeHtml(v.createdAt || '')}">
-              <video src="${url}#t=0.5" preload="metadata" muted></video>
-              <div class="play">▶</div>
-            </div>
-            <div class="video-meta">
-              <div class="date">${fmtDate(v.createdAt)}</div>
-              <div class="music">♪ ${escapeHtml(v.music || '—')}</div>
-              <div class="muted">${fmtSize(v.size)}</div>
-            </div>
-            <div class="video-actions">
-              <a class="btn secondary" href="${url}" download="${escapeHtml(v.filename)}">⤓ Télécharger</a>
-              <button class="btn danger" data-del="${v.id}">Supprimer</button>
-            </div>
-          </div>`;
-        }).join('');
-        grid.querySelectorAll('[data-open]').forEach(el => {
-          el.addEventListener('click', () => openLightbox(el.getAttribute('data-open'), el.getAttribute('data-music'), el.getAttribute('data-date')));
-        });
-        grid.querySelectorAll('[data-del]').forEach(b => {
-          b.addEventListener('click', async () => {
-            if (!confirmDelete('Supprimer cette vidéo définitivement ?')) return;
-            try {
-              await api('/api/admin/videos/' + b.getAttribute('data-del'), { method: 'DELETE' });
-              toast('Supprimé');
-              load();
-            } catch (e) { toast(e.message, true); }
-          });
-        });
+        grid.innerHTML = list.map(renderVideoCard).join('');
+        wireCardListeners(grid);
+        knownVideoIds = new Set(list.map(v => v.id));
       } catch (e) { toast(e.message, true); }
+    }
+
+    // Poll toutes les 10s : ajoute en tête de grille les vidéos qui ne sont
+    // pas encore connues. Le re-render complet (load()) n'est déclenché que
+    // sur action explicite (bouton Actualiser ou suppression).
+    async function pollNewVideos() {
+      try {
+        const list = await api('/api/admin/videos');
+        const newOnes = list.filter(v => !knownVideoIds.has(v.id));
+        if (newOnes.length === 0) return;
+        const grid = document.getElementById('grid');
+        const empty = grid.querySelector('.empty');
+        if (empty) empty.remove();
+        // La liste est triée du plus récent au plus ancien. On insère
+        // chacune en première position en partant de la plus ancienne pour
+        // que l'ordre final reste cohérent (plus récente tout en haut).
+        const tmp = document.createElement('div');
+        tmp.innerHTML = newOnes.map(renderVideoCard).join('');
+        const cards = Array.from(tmp.children);
+        for (let i = cards.length - 1; i >= 0; i--) {
+          grid.insertBefore(cards[i], grid.firstChild);
+        }
+        wireCardListeners(grid);
+        document.getElementById('count').textContent = list.length + ' vidéo(s)';
+        knownVideoIds = new Set(list.map(v => v.id));
+        toast(`${newOnes.length} nouvelle${newOnes.length > 1 ? 's' : ''} vidéo${newOnes.length > 1 ? 's' : ''}`);
+      } catch {
+        // silent fail — pas de toast pénible toutes les 10s en cas de réseau coupé
+      }
     }
 
     function openLightbox(url, music, date) {
       const lb = document.getElementById('lightbox');
       const v = document.getElementById('lb-video');
       v.src = url;
-      fixVideoDuration(v); // débloque la progress bar des WebM MediaRecorder
       document.getElementById('lb-meta').textContent = `${fmtDate(date)} · ♪ ${music || '—'}`;
       lb.classList.add('visible');
     }
@@ -112,6 +156,15 @@
 
     document.getElementById('refresh').addEventListener('click', load);
     load();
+
+    // Polling auto toutes les 10s pour récupérer les nouvelles vidéos sans
+    // recharger la page. Skip si la lightbox est ouverte (lecture en cours)
+    // pour ne pas perturber l'utilisateur.
+    setInterval(() => {
+      const lb = document.getElementById('lightbox');
+      if (lb && lb.classList.contains('visible')) return;
+      pollNewVideos();
+    }, 10000);
   </script>
 </body>
 </html>

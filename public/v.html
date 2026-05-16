@@ -131,25 +131,6 @@
   </main>
 
   <script>
-    // MediaRecorder WebM duration fix : seek to end pour forcer le
-    // navigateur a lire la vraie duree depuis le timestamp du dernier
-    // frame. Sans cela, duration = Infinity et la progress bar est
-    // cassee. Trick reconnu (cf. webmrecorder, ts-ebml, etc.)
-    function fixVideoDuration(video) {
-      const fix = () => {
-        if (!isFinite(video.duration) || isNaN(video.duration)) {
-          const onTime = () => {
-            video.removeEventListener('timeupdate', onTime);
-            try { video.currentTime = 0; } catch {}
-          };
-          video.addEventListener('timeupdate', onTime);
-          try { video.currentTime = 1e10; } catch {}
-        }
-      };
-      if (video.readyState >= 1) fix();
-      else video.addEventListener('loadedmetadata', fix, { once: true });
-    }
-
     function fmtDate(iso) {
       if (!iso) return '';
       try {
@@ -194,7 +175,6 @@
         `;
         const video = document.getElementById('video');
         video.src = v.url;
-        fixVideoDuration(video);
       } catch (e) {
         content.className = 'error';
         content.textContent = e.message;

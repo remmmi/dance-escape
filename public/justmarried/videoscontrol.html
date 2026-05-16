@@ -41,7 +41,7 @@
 
   <script src="/justmarried/js/admin-common.js"></script>
   <script>
-    const { toast, fmtDate, fmtSize, api, confirmDelete, fixVideoDuration } = window.Admin;
+    const { toast, fmtDate, fmtSize, api, confirmDelete } = window.Admin;
 
     function escapeHtml(s) {
       return String(s).replace(/[&<>"']/g, c => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[c]));
@@ -106,7 +106,6 @@
       const lb = document.getElementById('lightbox');
       const v = document.getElementById('lb-video');
       v.src = url;
-      fixVideoDuration(v); // débloque la progress bar des WebM MediaRecorder
       document.getElementById('lb-meta').textContent = `${fmtDate(date)} · ♪ ${music || '—'}`;
       lb.classList.add('visible');
     }

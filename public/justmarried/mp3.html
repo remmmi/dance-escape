@@ -24,6 +24,7 @@
     <div class="card">
       <h2>Fichiers MP3</h2>
       <p class="help">Pas de MP3 sous la main ? Convertissez une vidéo YouTube en MP3 sur <a href="https://notube.lol/fr/" target="_blank" rel="noopener">notube.lol</a> (gratuit, sans inscription), puis déposez le fichier ci-dessous.</p>
+      <p class="help"><strong>BPM</strong> : optionnel, pilote le rythme du danseur 💃 pendant le morceau. Pour trouver le BPM d'un titre que vous connaissez, cherchez-le sur <a href="https://tunebat.com" target="_blank" rel="noopener">tunebat.com</a> (ou son équivalent <a href="https://songbpm.com" target="_blank" rel="noopener">songbpm.com</a>). Laissez vide ou 0 pour conserver l'animation par défaut.</p>
       <div class="toolbar">
         <label class="btn" style="cursor:pointer;">
           + Ajouter des MP3
@@ -37,11 +38,13 @@
     <div class="card">
       <h2>Liens YouTube (audio uniquement)</h2>
       <p class="help">Coller une URL YouTube ou juste l'ID. La vidéo est masquée — seul le son est joué. Le timecode <code>?t=</code> ou <code>?start=</code> de l'URL est repris automatiquement, ou vous pouvez le saisir au format <code>s</code> ou <code>m:ss</code>.</p>
+      <p class="help"><strong>BPM</strong> : optionnel, pilote le rythme du danseur 💃. Trouvez le BPM sur <a href="https://tunebat.com" target="_blank" rel="noopener">tunebat.com</a> ou <a href="https://songbpm.com" target="_blank" rel="noopener">songbpm.com</a>. Laissez vide pour l'animation par défaut.</p>
       <div id="yt-list"></div>
       <div class="youtube-row">
         <input id="yt-url" type="url" placeholder="https://www.youtube.com/watch?v=... ou ID">
         <input id="yt-title" type="text" placeholder="Titre (optionnel)">
         <input id="yt-start" type="text" placeholder="Départ (ex. 42 ou 1:23)" style="max-width:14rem;">
+        <input id="yt-bpm" type="number" min="0" max="300" placeholder="BPM" style="max-width:6rem;">
         <button class="btn" id="yt-add">+ Ajouter</button>
       </div>
       <button class="btn secondary" id="yt-save" style="margin-top:.6rem;">Enregistrer</button>
@@ -53,23 +56,57 @@
     const { toast, fmtSize, api, confirmDelete } = window.Admin;
 
     // MP3
+    // Local copy of mp3Meta. Mutated by BPM inputs, pushed back to server
+    // via debounced POST. Rechargé depuis le serveur à chaque loadMp3().
+    let mp3Meta = {};
+    let mp3MetaSaveTimer = null;
+
+    function scheduleMp3MetaSave() {
+      clearTimeout(mp3MetaSaveTimer);
+      mp3MetaSaveTimer = setTimeout(async () => {
+        try {
+          await api('/api/admin/config', { method: 'POST', body: JSON.stringify({ mp3Meta }) });
+        } catch (e) { toast('BPM non sauvé : ' + e.message, true); }
+      }, 600);
+    }
+
     async function loadMp3() {
-      const list = await api('/api/admin/mp3');
+      const [list, cfg] = await Promise.all([
+        api('/api/admin/mp3'),
+        api('/api/admin/config')
+      ]);
+      mp3Meta = (cfg && cfg.mp3Meta && typeof cfg.mp3Meta === 'object') ? { ...cfg.mp3Meta } : {};
       const root = document.getElementById('mp3-list');
       if (list.length === 0) {
         root.innerHTML = '<div class="empty">Aucun MP3 — ajoutez-en pour démarrer.</div>';
         return;
       }
-      const rows = list.map(f => `
-        <tr>
-          <td>♪ ${escapeHtml(f.name)}</td>
-          <td class="muted">${fmtSize(f.size)}</td>
-          <td><audio controls preload="none" src="${f.url}" style="height:32px;"></audio></td>
-          <td style="text-align:right;">
-            <button class="btn danger" data-del="${encodeURIComponent(f.name)}">Supprimer</button>
-          </td>
-        </tr>`).join('');
-      root.innerHTML = `<table class="list"><thead><tr><th>Fichier</th><th>Taille</th><th>Écoute</th><th></th></tr></thead><tbody>${rows}</tbody></table>`;
+      const rows = list.map(f => {
+        const bpm = (mp3Meta[f.name] && mp3Meta[f.name].bpm) || '';
+        return `
+          <tr>
+            <td>♪ ${escapeHtml(f.name)}</td>
+            <td class="muted">${fmtSize(f.size)}</td>
+            <td><audio controls preload="none" src="${f.url}" style="height:32px;"></audio></td>
+            <td><input type="number" min="0" max="300" step="1" value="${bpm}" placeholder="—" data-bpm="${escapeHtml(f.name)}" style="width:5rem;text-align:right;"></td>
+            <td style="text-align:right;">
+              <button class="btn danger" data-del="${encodeURIComponent(f.name)}">Supprimer</button>
+            </td>
+          </tr>`;
+      }).join('');
+      root.innerHTML = `<table class="list"><thead><tr><th>Fichier</th><th>Taille</th><th>Écoute</th><th>BPM</th><th></th></tr></thead><tbody>${rows}</tbody></table>`;
+      root.querySelectorAll('[data-bpm]').forEach(inp => {
+        inp.addEventListener('input', () => {
+          const name = inp.getAttribute('data-bpm');
+          const v = parseInt(inp.value, 10);
+          if (Number.isFinite(v) && v >= 30 && v <= 300) {
+            mp3Meta[name] = { bpm: v };
+          } else {
+            delete mp3Meta[name];
+          }
+          scheduleMp3MetaSave();
+        });
+      });
       root.querySelectorAll('[data-del]').forEach(b => {
         b.addEventListener('click', async () => {
           const name = decodeURIComponent(b.getAttribute('data-del'));
@@ -168,12 +205,47 @@
         root.innerHTML = '<div class="empty">Aucun lien YouTube.</div>';
         return;
       }
-      root.innerHTML = '<div class="chips">' + ytItems.map((y, i) => {
-        const startBadge = y.startSeconds > 0
-          ? ` <small style="color:var(--sage-600);">@ ${escapeHtml(fmtTimecode(y.startSeconds))}</small>`
-          : '';
-        return `<span class="chip">♪ ${escapeHtml(y.title || y.videoId)} <small style="opacity:.6;">(${escapeHtml(y.videoId)})</small>${startBadge} <button data-yt-del="${i}" title="Retirer">×</button></span>`;
-      }).join('') + '</div>';
+      root.innerHTML = ytItems.map((y, i) => {
+        const bpmVal = (y.bpm && y.bpm > 0) ? y.bpm : '';
+        const startVal = y.startSeconds > 0 ? fmtTimecode(y.startSeconds) : '';
+        return `
+          <div class="row" style="grid-template-columns: 3fr 1.4fr 1fr 1fr auto; gap:.6rem; padding:.6rem .8rem; background:rgba(156,175,136,.18); border-radius:10px; margin-bottom:.4rem; align-items:end;">
+            <div>
+              <label style="font-size:.7rem; margin:0 0 .15rem; color:var(--sage-700);">Titre</label>
+              <input type="text" value="${escapeHtml(y.title || '')}" data-yt-field="title" data-yt-i="${i}" placeholder="Titre du morceau">
+            </div>
+            <div>
+              <label style="font-size:.7rem; margin:0 0 .15rem; color:var(--sage-700);">${y.videoId ? `<a href="https://www.youtube.com/watch?v=${encodeURIComponent(y.videoId)}${y.startSeconds > 0 ? '&t=' + y.startSeconds + 's' : ''}" target="_blank" rel="noopener" style="color:var(--sage-700);text-decoration:underline;">▶ Voir sur YouTube ↗</a>` : 'Video ID'}</label>
+              <input type="text" value="${escapeHtml(y.videoId || '')}" data-yt-field="videoId" data-yt-i="${i}" placeholder="ex. dQw4w9WgXcQ">
+            </div>
+            <div>
+              <label style="font-size:.7rem; margin:0 0 .15rem; color:var(--sage-700);">Départ</label>
+              <input type="text" value="${escapeHtml(startVal)}" data-yt-field="startSeconds" data-yt-i="${i}" placeholder="0 ou 1:23">
+            </div>
+            <div>
+              <label style="font-size:.7rem; margin:0 0 .15rem; color:var(--sage-700);">BPM</label>
+              <input type="number" min="0" max="300" step="1" value="${bpmVal}" data-yt-field="bpm" data-yt-i="${i}" placeholder="—">
+            </div>
+            <button type="button" class="btn danger" data-yt-del="${i}" title="Retirer" style="align-self:center;">×</button>
+          </div>`;
+      }).join('');
+      root.querySelectorAll('[data-yt-field]').forEach(inp => {
+        inp.addEventListener('input', () => {
+          const i = parseInt(inp.getAttribute('data-yt-i'), 10);
+          const f = inp.getAttribute('data-yt-field');
+          const v = inp.value;
+          if (f === 'bpm') {
+            const n = parseInt(v, 10);
+            ytItems[i].bpm = (Number.isFinite(n) && n >= 30 && n <= 300) ? n : 0;
+          } else if (f === 'startSeconds') {
+            ytItems[i].startSeconds = parseTimecode(v);
+          } else if (f === 'videoId') {
+            ytItems[i].videoId = String(v || '').trim();
+          } else {
+            ytItems[i][f] = v;
+          }
+        });
+      });
       root.querySelectorAll('[data-yt-del]').forEach(b => {
         b.addEventListener('click', () => {
           ytItems.splice(parseInt(b.getAttribute('data-yt-del'), 10), 1);
@@ -195,13 +267,16 @@
       const url = document.getElementById('yt-url').value;
       const title = document.getElementById('yt-title').value.trim();
       const startRaw = document.getElementById('yt-start').value;
+      const bpmRaw = parseInt(document.getElementById('yt-bpm').value, 10);
       const id = parseYouTube(url);
       if (!id) return toast("URL ou ID YouTube invalide", true);
       const startSeconds = parseTimecode(startRaw) || parseYouTubeStart(url);
-      ytItems.push({ videoId: id, title, startSeconds });
+      const bpm = (Number.isFinite(bpmRaw) && bpmRaw >= 30 && bpmRaw <= 300) ? bpmRaw : 0;
+      ytItems.push({ videoId: id, title, startSeconds, bpm });
       document.getElementById('yt-url').value = '';
       document.getElementById('yt-title').value = '';
       document.getElementById('yt-start').value = '';
+      document.getElementById('yt-bpm').value = '';
       renderYt();
     });
 
