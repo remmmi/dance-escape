@@ -205,12 +205,20 @@ body {
 .dancer {
   font-size: clamp(11rem, 26vmin, 22rem);
   /* --shimmy-duration est posé par kiosk.js à partir du BPM du morceau
-     en cours (60/BPM secondes par battement, alterne up/down). Fallback
-     à 0.55 s ≈ 109 BPM si le morceau n'a pas de BPM configuré. */
-  animation: shimmy var(--shimmy-duration, 0.55s) ease-in-out infinite alternate;
+     en cours (30/BPM secondes par croche, 2 oscillations par battement).
+     Fallback à 0.275 s ≈ 109 BPM doublé si le morceau n'a pas de BPM. */
+  animation: shimmy var(--shimmy-duration, 0.275s) ease-in-out infinite alternate;
   filter: drop-shadow(0 8px 20px rgba(58, 71, 48, .32));
 }
-.dancer .emoji { display: inline-block; }
+.dancer .emoji {
+  display: inline-block;
+  /* --dancer-flip est posé par kiosk.js : valeur initiale aléatoire à
+     chaque session, puis re-toggle 2-4 fois pendant la phase de danse
+     (cadence en fonction du BPM). La transition lisse le changement
+     d'orientation en 220 ms pour éviter le snap brut. */
+  transform: scaleX(var(--dancer-flip, 1));
+  transition: transform 220ms ease-in-out;
+}
 @keyframes shimmy {
   from { transform: translateY(0) rotate(-6deg) scale(1); }
   to   { transform: translateY(-14px) rotate(8deg) scale(1.06); }

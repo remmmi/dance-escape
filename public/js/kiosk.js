@@ -299,18 +299,56 @@
     return String(s).replace(/[&<>"']/g, c => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[c]));
   }
 
+  // Timers des flips horizontaux de la danseuse pendant la phase de
+  // danse. On les garde référencés pour pouvoir cancel proprement à
+  // Shift+Échap ou au début d'une nouvelle session.
+  let dancerFlipTimers = [];
+  function clearDancerFlips() {
+    dancerFlipTimers.forEach(clearTimeout);
+    dancerFlipTimers = [];
+  }
+
   // Pilote la vitesse de l'animation .dancer via la variable CSS
-  // --shimmy-duration. L'animation est en `alternate`, donc une "demi-
-  // période" CSS correspond à un battement (60/BPM secondes). Si le
-  // morceau n'a pas de BPM configuré (0 ou absent), on enlève la
-  // variable pour revenir au fallback CSS (0.55 s ≈ 109 BPM).
+  // --shimmy-duration (30/BPM s par demi-période → 2 oscillations par
+  // battement). Pose aussi --dancer-flip (±1) pour l'orientation, avec
+  // 2 à 4 changements de sens répartis dans la phase de danse selon
+  // le BPM (lent=2, rapide=4). Plus le morceau est énergique, plus la
+  // danseuse retourne souvent.
   function applyDancerTempo(track) {
     const root = document.documentElement;
+    clearDancerFlips();
+
     const bpm = (track && Number.isFinite(track.bpm) && track.bpm > 0) ? track.bpm : 0;
     if (bpm > 0) {
-      root.style.setProperty('--shimmy-duration', (60 / bpm).toFixed(3) + 's');
+      root.style.setProperty('--shimmy-duration', (30 / bpm).toFixed(3) + 's');
     } else {
       root.style.removeProperty('--shimmy-duration');
+    }
+
+    // Orientation initiale tirée au sort
+    let flip = Math.random() < 0.5 ? -1 : 1;
+    root.style.setProperty('--dancer-flip', String(flip));
+
+    // Nombre de flips : interpolation linéaire BPM 80→160 ⇒ 2→4, clamp [2,4].
+    // Fallback BPM=120 quand non configuré (cas par défaut, ~3 flips).
+    const effectiveBpm = bpm > 0 ? bpm : 120;
+    const N = Math.max(2, Math.min(4, Math.round(2 + (effectiveBpm - 80) / 40)));
+
+    // Distribuer N moments de flip dans [10%, 90%] de la phase de
+    // danse (t3 = fin enregistrement, ms depuis T0). On évite les
+    // 10% du début/fin pour que ça reste perceptible et naturel.
+    // Jitter ±25% du slot pour casser la régularité robotique.
+    const t3 = (cfg && cfg.timings && cfg.timings.t3Ms) ? cfg.timings.t3Ms : 40000;
+    const startPct = 0.1, endPct = 0.9;
+    const span = endPct - startPct;
+    for (let i = 0; i < N; i++) {
+      const basePct = startPct + ((i + 0.5) / N) * span;
+      const jitterPct = (Math.random() - 0.5) * (span / N) * 0.5;
+      const tMs = (basePct + jitterPct) * t3;
+      dancerFlipTimers.push(setTimeout(() => {
+        flip = -flip;
+        document.documentElement.style.setProperty('--dancer-flip', String(flip));
+      }, tMs));
     }
   }
 
@@ -1408,6 +1446,7 @@
   document.addEventListener('keydown', (e) => {
     if (e.key === 'Escape' && e.shiftKey) {
       stopMusic();
+      clearDancerFlips();
       try { if (recorder && recorder.state !== 'inactive') recorder.stop(); } catch {}
       teardownStream();
       hideModal(modalWarn); hideModal(modalVictory);
